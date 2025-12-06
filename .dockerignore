@@ -1,0 +1,13 @@
+node_modules
+dist
+.env
+*.log
+.DS_Store
+.git
+.gitignore
+README.md
+docs
+SETUP.md
+QUICK_START.md
+setup-database.ps1
+
