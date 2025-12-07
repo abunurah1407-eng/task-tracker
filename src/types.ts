@@ -22,7 +22,7 @@ export interface Task {
   year: number;
   status: 'pending' | 'in-progress' | 'completed';
   priority: 'low' | 'medium' | 'high';
-  notes?: string;
+  description?: string;
   createdAt: string;
   updatedAt: string;
 }

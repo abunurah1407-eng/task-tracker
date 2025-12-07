@@ -7,6 +7,8 @@ import engineerRoutes from './routes/engineers';
 import serviceRoutes from './routes/services';
 import notificationRoutes from './routes/notifications';
 import teamTaskRoutes from './routes/teamTasks';
+import importRoutes from './routes/import';
+import chatbotRoutes from './routes/chatbot';
 
 dotenv.config();
 
@@ -32,6 +34,8 @@ app.use('/api/engineers', engineerRoutes);
 app.use('/api/services', serviceRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/team-tasks', teamTaskRoutes);
+app.use('/api/import', importRoutes);
+app.use('/api/chatbot', chatbotRoutes);
 
 // Error handling
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

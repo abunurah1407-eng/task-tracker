@@ -1,19 +1,20 @@
 import { useState } from 'react';
 import { Task, Engineer, Service } from '../types';
-import { X, Save, Trash2 } from 'lucide-react';
+import { X, Save, Trash2, Plus, Minus } from 'lucide-react';
 
 interface TaskModalProps {
   task: Task | null;
   engineers: Engineer[];
   services: Service[];
   onSave: (task: Task | Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  onSaveMultiple?: (tasks: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>[]) => void;
   onDelete?: () => void;
   onClose: () => void;
   currentEngineer?: string;
   readOnlyEngineer?: boolean;
 }
 
-export default function TaskModal({ task, engineers, services, onSave, onDelete, onClose, currentEngineer, readOnlyEngineer }: TaskModalProps) {
+export default function TaskModal({ task, engineers, services, onSave, onSaveMultiple, onDelete, onClose, currentEngineer, readOnlyEngineer }: TaskModalProps) {
   const [formData, setFormData] = useState({
     service: task?.service || '',
     engineer: task?.engineer || currentEngineer || '',
@@ -22,8 +23,11 @@ export default function TaskModal({ task, engineers, services, onSave, onDelete,
     year: task?.year || new Date().getFullYear(),
     status: task?.status || 'pending' as Task['status'],
     priority: task?.priority || 'medium' as Task['priority'],
-    notes: task?.notes || '',
+    description: task?.description || '',
   });
+  
+  // For bulk creation: multiple descriptions
+  const [descriptions, setDescriptions] = useState<string[]>(task ? [task.description || ''] : ['']);
 
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -33,10 +37,51 @@ export default function TaskModal({ task, engineers, services, onSave, onDelete,
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (task) {
+      // Editing: single task
       onSave({ ...task, ...formData });
     } else {
-      onSave(formData);
+      // Creating: check if multiple descriptions
+      const validDescriptions = descriptions.filter(d => d.trim() !== '');
+      if (validDescriptions.length === 0) {
+        alert('Please add at least one task description');
+        return;
+      }
+      
+      if (validDescriptions.length === 1) {
+        // Single task
+        onSave({ ...formData, description: validDescriptions[0] });
+      } else {
+        // Multiple tasks
+        if (onSaveMultiple) {
+          const tasks = validDescriptions.map(desc => ({
+            ...formData,
+            description: desc,
+          }));
+          onSaveMultiple(tasks);
+        } else {
+          // Fallback: create one by one
+          validDescriptions.forEach(desc => {
+            onSave({ ...formData, description: desc });
+          });
+        }
+      }
     }
+  };
+
+  const addDescription = () => {
+    setDescriptions([...descriptions, '']);
+  };
+
+  const removeDescription = (index: number) => {
+    if (descriptions.length > 1) {
+      setDescriptions(descriptions.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateDescription = (index: number, value: string) => {
+    const updated = [...descriptions];
+    updated[index] = value;
+    setDescriptions(updated);
   };
 
   return (
@@ -184,16 +229,63 @@ export default function TaskModal({ task, engineers, services, onSave, onDelete,
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Notes
-            </label>
-            <textarea
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              placeholder="Add any additional notes or details..."
-            />
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-gray-700">
+                Task Description{!task && descriptions.length > 1 ? 's' : ''} *
+              </label>
+              {!task && (
+                <button
+                  type="button"
+                  onClick={addDescription}
+                  className="flex items-center gap-1 px-2 py-1 text-sm text-main hover:text-main-700 hover:bg-main-50 rounded transition-colors"
+                >
+                  <Plus size={16} />
+                  Add Another
+                </button>
+              )}
+            </div>
+            {task ? (
+              // Editing: single description
+              <textarea
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                rows={4}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                placeholder="Enter task description..."
+                required
+              />
+            ) : (
+              // Creating: multiple descriptions
+              <div className="space-y-2">
+                {descriptions.map((desc, index) => (
+                  <div key={index} className="flex gap-2">
+                    <textarea
+                      value={desc}
+                      onChange={(e) => updateDescription(index, e.target.value)}
+                      rows={3}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder={`Task description ${index + 1}...`}
+                      required={index === 0}
+                    />
+                    {descriptions.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeDescription(index)}
+                        className="px-2 py-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                        title="Remove description"
+                      >
+                        <Minus size={18} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <p className="text-xs text-gray-500">
+                  {descriptions.length > 1 
+                    ? `Creating ${descriptions.filter(d => d.trim() !== '').length} tasks with the same configuration`
+                    : 'Add multiple descriptions to create multiple tasks at once'}
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="flex gap-3 pt-4 border-t border-gray-200">

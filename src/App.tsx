@@ -6,6 +6,7 @@ import DirectorDashboard from './components/DirectorDashboard';
 import EngineerDashboard from './components/EngineerDashboard';
 import EngineersView from './components/EngineersView';
 import EngineersManagement from './components/EngineersManagement';
+import ServicesManagement from './components/ServicesManagement';
 import InviteResetPassword from './components/InviteResetPassword';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -72,6 +73,14 @@ function AppContent() {
         element={
           <ProtectedRoute>
             {user?.role === 'admin' || user?.role === 'director' ? <EngineersManagement /> : <Navigate to="/dashboard" replace />}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/services-management"
+        element={
+          <ProtectedRoute>
+            {user?.role === 'admin' || user?.role === 'director' ? <ServicesManagement /> : <Navigate to="/dashboard" replace />}
           </ProtectedRoute>
         }
       />

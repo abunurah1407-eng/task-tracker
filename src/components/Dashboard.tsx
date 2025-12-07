@@ -163,7 +163,7 @@ export default function Dashboard() {
       task.year,
       task.status,
       task.priority,
-      task.notes || '',
+      task.description || '',
     ]);
 
     const csvContent = [

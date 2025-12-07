@@ -33,8 +33,8 @@ export default function TaskItem({ task, onEdit, onDelete, getStatusIcon, getSta
           </div>
           <div className="text-sm text-gray-600 space-y-1">
             <p>Week {task.week} • {task.month} {task.year}</p>
-            {task.notes && (
-              <p className="text-gray-500 italic">"{task.notes}"</p>
+            {task.description && (
+              <p className="text-gray-500 italic">"{task.description}"</p>
             )}
           </div>
         </div>

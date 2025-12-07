@@ -67,13 +67,25 @@ class ApiService {
   }
 
   async getTask(id: string) {
-    return this.request<any>(`/tasks/${id}`);
+    const task = await this.request<any>(`/tasks/${id}`);
+    // Map notes to description for backward compatibility
+    return {
+      ...task,
+      description: task.description || task.notes || '',
+    };
   }
 
   async createTask(task: any) {
     return this.request<any>('/tasks', {
       method: 'POST',
       body: JSON.stringify(task),
+    });
+  }
+
+  async createTasksBulk(tasks: any[]) {
+    return this.request<any>('/tasks/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ tasks }),
     });
   }
 
@@ -98,6 +110,26 @@ class ApiService {
   // Services
   async getServices() {
     return this.request<any[]>('/services');
+  }
+
+  async createService(service: { name: string; assignedTo?: string; category: 'primary' | 'secondary' }) {
+    return this.request<any>('/services', {
+      method: 'POST',
+      body: JSON.stringify(service),
+    });
+  }
+
+  async updateService(id: string, service: { name?: string; assignedTo?: string; category?: 'primary' | 'secondary' }) {
+    return this.request<any>(`/services/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(service),
+    });
+  }
+
+  async deleteService(id: string) {
+    return this.request<any>(`/services/${id}`, {
+      method: 'DELETE',
+    });
   }
 
   // Notifications
@@ -169,6 +201,65 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify({ newPassword }),
     });
+  }
+
+  // Import
+  async previewImport(file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const token = this.getToken();
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/import/preview`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  // Chatbot
+  async queryChatbot(query: string) {
+    return this.request<{ response: string; tasks: any[]; count: number; filters: any }>('/chatbot', {
+      method: 'POST',
+      body: JSON.stringify({ query }),
+    });
+  }
+
+  async importTasks(file: File, month: string, year: number) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('month', month);
+    formData.append('year', year.toString());
+
+    const token = this.getToken();
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/import/import`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    }
+
+    return response.json();
   }
 }
 

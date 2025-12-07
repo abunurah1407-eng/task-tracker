@@ -5,10 +5,16 @@ import { useAuth } from '../context/AuthContext';
 import TaskModal from './TaskModal';
 import NotificationPanel from './NotificationPanel';
 import TaskItem from './TaskItem';
+import ImportModal from './ImportModal';
+import ServicesSummaryModal from './ServicesSummaryModal';
+import EngineerSummaryModal from './EngineerSummaryModal';
+import EngineerServicesViewModal from './EngineerServicesViewModal';
+import ServiceEngineersViewModal from './ServiceEngineersViewModal';
+import Chatbot from './Chatbot';
 import GroupedTasksByEngineer from './GroupedTasksByEngineer';
 import GroupedTasksByService from './GroupedTasksByService';
 import GroupedTasksByStatus from './GroupedTasksByStatus';
-import { Plus, Download, LogOut, Bell, Search, CheckCircle, Clock, Circle, FileText, UserPlus } from 'lucide-react';
+import { Plus, Download, LogOut, Bell, Search, CheckCircle, Clock, Circle, FileText, UserPlus, Upload, Layers, ChevronDown, Menu, X, User, RefreshCw, Bot } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 
@@ -26,10 +32,24 @@ export default function DirectorDashboard() {
   const [yearFilter, setYearFilter] = useState<number | 'all'>('all');
   const [serviceFilter, setServiceFilter] = useState<string>('all');
   const [groupBy, setGroupBy] = useState<'none' | 'engineer' | 'service' | 'status'>('none');
+  // Summary filters (separate from main filters)
+  const [summaryServiceFilter, setSummaryServiceFilter] = useState<string>('all');
+  const [summaryEngineerFilter, setSummaryEngineerFilter] = useState<string>('all');
+  const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
+  const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
+  const [isServicesSummaryModalOpen, setIsServicesSummaryModalOpen] = useState(false);
+  const [isEngineerSummaryModalOpen, setIsEngineerSummaryModalOpen] = useState(false);
+  const [isEngineerServicesViewModalOpen, setIsEngineerServicesViewModalOpen] = useState(false);
+  const [isServiceEngineersViewModalOpen, setIsServiceEngineersViewModalOpen] = useState(false);
+  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -44,7 +64,48 @@ export default function DirectorDashboard() {
     }
   }, [tasks, user]);
 
-  const loadData = async () => {
+  // Close menus when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.menu-container')) {
+        setIsUserMenuOpen(false);
+        setIsMenuOpen(false);
+      }
+    };
+
+    if (isUserMenuOpen || isMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isUserMenuOpen, isMenuOpen]);
+
+  // Cache key for storing data
+  const CACHE_KEY = 'director_dashboard_data';
+  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+  const loadData = async (forceReload: boolean = false) => {
+    // Check cache first
+    if (!forceReload) {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        try {
+          const { data, timestamp } = JSON.parse(cached);
+          const now = Date.now();
+          if (now - timestamp < CACHE_DURATION) {
+            setEngineers(data.engineers);
+            setServices(data.services);
+            setTasks(data.tasks);
+            setIsLoading(false);
+            return;
+          }
+        } catch (error) {
+          console.error('Error reading cache:', error);
+        }
+      }
+    }
+
+    setIsLoading(true);
     try {
       const [engineersData, servicesData, tasksData] = await Promise.all([
         api.getEngineers(),
@@ -55,9 +116,27 @@ export default function DirectorDashboard() {
       setEngineers(engineersData);
       setServices(servicesData);
       setTasks(tasksData);
+
+      // Cache the data
+      const cacheData = {
+        engineers: engineersData,
+        services: servicesData,
+        tasks: tasksData,
+      };
+      localStorage.setItem(CACHE_KEY, JSON.stringify({
+        data: cacheData,
+        timestamp: Date.now(),
+      }));
     } catch (error) {
       console.error('Error loading data:', error);
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  const handleHardReload = () => {
+    localStorage.removeItem(CACHE_KEY);
+    loadData(true);
   };
 
   const checkNotifications = async () => {
@@ -73,7 +152,7 @@ export default function DirectorDashboard() {
   const handleAddTask = async (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
       await api.createTask(task);
-      await loadData();
+      await loadData(true); // Force reload after creating task
       setIsTaskModalOpen(false);
       setEditingTask(null);
       await checkNotifications();
@@ -83,10 +162,24 @@ export default function DirectorDashboard() {
     }
   };
 
+  const handleAddMultipleTasks = async (tasks: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>[]) => {
+    try {
+      await api.createTasksBulk(tasks);
+      await loadData(true); // Force reload after creating tasks
+      setIsTaskModalOpen(false);
+      setEditingTask(null);
+      await checkNotifications();
+      alert(`Successfully created ${tasks.length} tasks!`);
+    } catch (error) {
+      console.error('Error creating tasks:', error);
+      alert('Failed to create tasks. Please try again.');
+    }
+  };
+
   const handleUpdateTask = async (updatedTask: Task) => {
     try {
       await api.updateTask(updatedTask.id.toString(), updatedTask);
-      await loadData();
+      await loadData(true); // Force reload after updating task
       setIsTaskModalOpen(false);
       setEditingTask(null);
       await checkNotifications();
@@ -103,7 +196,7 @@ export default function DirectorDashboard() {
     
     try {
       await api.deleteTask(task.id.toString());
-      await loadData();
+      await loadData(true); // Force reload after deleting task
     } catch (error) {
       console.error('Error deleting task:', error);
       alert('Failed to delete task. Please try again.');
@@ -128,33 +221,47 @@ export default function DirectorDashboard() {
   const currentMonth = new Date().toLocaleString('default', { month: 'long' });
   const currentYear = new Date().getFullYear();
 
-  // Initialize summary month/year to current month/year
-  const [summaryMonth, setSummaryMonth] = useState<string>(() => {
-    const now = new Date();
-    return now.toLocaleString('default', { month: 'long' });
-  });
-  const [summaryYear, setSummaryYear] = useState<number>(() => new Date().getFullYear());
-
-  // Calculate selected month tasks (for summary)
-  const selectedMonthTasks = tasks.filter(t => 
-    t.month === summaryMonth && 
-    t.year === summaryYear
-  );
-
-  // Get unique months and years for summary selector
-  const uniqueSummaryMonths = Array.from(new Set(tasks.map(t => t.month))).sort((a, b) => {
-    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    return months.indexOf(a) - months.indexOf(b);
-  });
+  // Get unique years for summary
   const uniqueSummaryYears = Array.from(new Set(tasks.map(t => t.year))).sort((a, b) => b - a);
+  
+  // Get months for selected year
+  const monthsInSelectedYear = Array.from(new Set(
+    tasks.filter(t => t.year === selectedYear).map(t => t.month)
+  )).sort((a, b) => {
+    const monthOrder = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    return monthOrder.indexOf(a) - monthOrder.indexOf(b);
+  });
 
-  const selectedMonthPending = selectedMonthTasks.filter(t => t.status === 'pending').length;
-  const selectedMonthInProgress = selectedMonthTasks.filter(t => t.status === 'in-progress').length;
-  const selectedMonthCompleted = selectedMonthTasks.filter(t => t.status === 'completed').length;
+  // Calculate year-level statistics (with filters)
+  const yearTasks = tasks.filter(t => {
+    if (t.year !== selectedYear) return false;
+    if (summaryServiceFilter !== 'all' && t.service !== summaryServiceFilter) return false;
+    if (summaryEngineerFilter !== 'all' && t.engineer !== summaryEngineerFilter) return false;
+    return true;
+  });
 
-  // Calculate weekly breakdown for selected month
-  const weeklyBreakdown = [1, 2, 3, 4].map(week => {
-    const weekTasks = selectedMonthTasks.filter(t => t.week === week);
+  const yearTotal = yearTasks.length;
+  const yearPending = yearTasks.filter(t => t.status === 'pending').length;
+  const yearInProgress = yearTasks.filter(t => t.status === 'in-progress').length;
+  const yearCompleted = yearTasks.filter(t => t.status === 'completed').length;
+
+  // Calculate month-level statistics
+  const monthStats = monthsInSelectedYear.map(month => {
+    const monthTasks = yearTasks.filter(t => t.month === month);
+    return {
+      month,
+      total: monthTasks.length,
+      pending: monthTasks.filter(t => t.status === 'pending').length,
+      inProgress: monthTasks.filter(t => t.status === 'in-progress').length,
+      completed: monthTasks.filter(t => t.status === 'completed').length,
+    };
+  });
+
+  // Calculate weekly breakdown for a specific month
+  const getWeeklyBreakdown = (month: string) => {
+    const monthTasks = yearTasks.filter(t => t.month === month);
+    return [1, 2, 3, 4].map(week => {
+      const weekTasks = monthTasks.filter(t => t.week === week);
     return {
       week,
       total: weekTasks.length,
@@ -163,6 +270,18 @@ export default function DirectorDashboard() {
       completed: weekTasks.filter(t => t.status === 'completed').length,
     };
   });
+  };
+
+
+  const toggleMonthExpansion = (month: string) => {
+    const newExpanded = new Set(expandedMonths);
+    if (newExpanded.has(month)) {
+      newExpanded.delete(month);
+    } else {
+      newExpanded.add(month);
+    }
+    setExpandedMonths(newExpanded);
+  };
 
   // Filter tasks
   let filteredTasks = tasks;
@@ -200,7 +319,7 @@ export default function DirectorDashboard() {
     filteredTasks = filteredTasks.filter(t =>
       t.service.toLowerCase().includes(query) ||
       t.engineer.toLowerCase().includes(query) ||
-      (t.notes && t.notes.toLowerCase().includes(query))
+      (t.description && t.description.toLowerCase().includes(query))
     );
   }
 
@@ -244,7 +363,7 @@ export default function DirectorDashboard() {
   };
 
   const exportToCSV = () => {
-    const headers = ['Service', 'Engineer', 'Week', 'Month', 'Year', 'Status', 'Priority', 'Notes'];
+    const headers = ['Service', 'Engineer', 'Week', 'Month', 'Year', 'Status', 'Priority', 'Description'];
     const rows = filteredTasks.map(task => [
       task.service,
       task.engineer,
@@ -253,7 +372,7 @@ export default function DirectorDashboard() {
       task.year,
       task.status,
       task.priority,
-      task.notes || '',
+      task.description || '',
     ]);
 
     const csvContent = [
@@ -424,7 +543,7 @@ export default function DirectorDashboard() {
                   <td>${task.year}</td>
                   <td>${task.status}</td>
                   <td>${task.priority}</td>
-                  <td>${task.notes || ''}</td>
+                  <td>${task.description || ''}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -441,96 +560,381 @@ export default function DirectorDashboard() {
     }, 250);
   };
 
-  return (
+  // Skeleton Loading Component
+  const SkeletonLoader = () => (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-6">
-        {/* Header */}
+        {/* Header Skeleton */}
         <div className="mb-6">
           <div className="flex justify-between items-center mb-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-1">
+              <div className="h-8 w-64 bg-gray-200 rounded animate-pulse mb-2"></div>
+              <div className="h-4 w-48 bg-gray-200 rounded animate-pulse"></div>
+            </div>
+            <div className="flex gap-3">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="h-10 w-24 bg-gray-200 rounded animate-pulse"></div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Summary Card Skeleton */}
+        <div className="bg-main rounded-lg shadow-lg p-6 mb-6">
+          <div className="h-8 w-48 bg-white bg-opacity-20 rounded animate-pulse mb-4"></div>
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="bg-white bg-opacity-20 rounded-lg p-4">
+                <div className="h-4 w-20 bg-white bg-opacity-30 rounded animate-pulse mb-2"></div>
+                <div className="h-8 w-16 bg-white bg-opacity-30 rounded animate-pulse"></div>
+              </div>
+            ))}
+          </div>
+          <div className="space-y-3">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="bg-white bg-opacity-20 rounded-lg p-4">
+                <div className="h-4 w-32 bg-white bg-opacity-30 rounded animate-pulse"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Filters Skeleton */}
+        <div className="bg-white rounded-lg shadow-lg p-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-8 gap-4">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+              <div key={i} className="h-10 bg-gray-200 rounded animate-pulse"></div>
+            ))}
+          </div>
+        </div>
+
+        {/* Charts Skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="bg-white rounded-lg shadow-lg p-6">
+              <div className="h-6 w-48 bg-gray-200 rounded animate-pulse mb-4"></div>
+              <div className="h-64 bg-gray-100 rounded animate-pulse"></div>
+            </div>
+          ))}
+        </div>
+
+        {/* Tasks List Skeleton */}
+        <div className="bg-white rounded-lg shadow-lg p-4">
+          <div className="h-6 w-32 bg-gray-200 rounded animate-pulse mb-4"></div>
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map(i => (
+              <div key={i} className="h-20 bg-gray-100 rounded animate-pulse"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (isLoading) {
+    return <SkeletonLoader />;
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto px-4 py-6">
+        {/* Enhanced Header with Menu */}
+        <div className="mb-6">
+          <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-4 mb-4">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-4">
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">
                 Director Dashboard
               </h1>
-              <p className="text-gray-600">
+                  <p className="text-sm text-gray-600 mt-1">
                 Welcome, <span className="font-semibold">{user?.name}</span>
               </p>
             </div>
-            <div className="flex gap-3 flex-wrap">
+              </div>
+              
+              {/* Desktop Menu */}
+              <div className="hidden md:flex items-center gap-2">
+                {/* Actions Menu */}
+                <div className="relative group">
+                  <button className="flex items-center gap-2 px-4 py-2 bg-main text-white rounded-lg hover:bg-main-700 transition-colors shadow-md">
+                    <Plus size={18} />
+                    Actions
+                    <ChevronDown size={16} />
+                  </button>
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                    <div className="py-1">
               <button
-                onClick={exportToPDF}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-md"
-              >
-                <FileText size={18} />
-                Export PDF
+                        onClick={() => {
+                          setEditingTask(null);
+                          setIsTaskModalOpen(true);
+                          setIsMenuOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                      >
+                        <Plus size={16} />
+                        Add Task
               </button>
               <button
-                onClick={exportToCSV}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-md"
-              >
+                        onClick={() => {
+                          setIsImportModalOpen(true);
+                          setIsMenuOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                      >
+                        <Upload size={16} />
+                        Import Excel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Export Menu */}
+                <div className="relative group">
+                  <button className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-md">
                 <Download size={18} />
+                    Export
+                    <ChevronDown size={16} />
+                  </button>
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                    <div className="py-1">
+                      <button
+                        onClick={() => {
+                          exportToPDF();
+                          setIsMenuOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                      >
+                        <FileText size={16} />
+                        Export PDF
+                      </button>
+                      <button
+                        onClick={() => {
+                          exportToCSV();
+                          setIsMenuOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                      >
+                        <Download size={16} />
                 Export CSV
               </button>
-              <button
-                onClick={() => {
-                  setEditingTask(null);
-                  setIsTaskModalOpen(true);
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-main text-white rounded-lg hover:bg-main-700 transition-colors shadow-md"
-              >
-                <Plus size={18} />
-                Add Task
-              </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Management Menu */}
+                <div className="relative group">
+                  <button className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors shadow-md">
+                    <Layers size={18} />
+                    Management
+                    <ChevronDown size={16} />
+                  </button>
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                    <div className="py-1">
+                      <Link
+                        to="/engineers-management"
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                      >
+                        <UserPlus size={16} />
+                        Engineers Management
+                      </Link>
+                      <Link
+                        to="/services-management"
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                      >
+                        <Layers size={16} />
+                        Services Management
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+
+                {/* User Menu */}
+                <div className="relative menu-container">
+                  <button
+                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors shadow-md"
+                  >
+                    <User size={18} />
+                    <span className="hidden lg:inline">{user?.name}</span>
+                    <ChevronDown size={16} className={isUserMenuOpen ? 'rotate-180' : ''} />
+                  </button>
+                  {isUserMenuOpen && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setIsUserMenuOpen(false)}
+                      ></div>
+                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
+                        <div className="py-1">
+                          <div className="px-4 py-2 border-b border-gray-200">
+                            <p className="text-sm font-semibold text-gray-900">{user?.name}</p>
+                            <p className="text-xs text-gray-500">{user?.email}</p>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setIsNotificationPanelOpen(true);
+                              setIsUserMenuOpen(false);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                          >
+                            <Bell size={16} />
+                            Notifications
+                            {unreadNotificationCount > 0 && (
+                              <span className="ml-auto bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                                {unreadNotificationCount}
+                              </span>
+                            )}
+                          </button>
+                          <button
+                            onClick={() => {
+                              logout();
+                              setIsUserMenuOpen(false);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                          >
+                            <LogOut size={16} />
+                            Logout
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Mobile Menu Button */}
+              <div className="md:hidden relative">
+                <button
+                  onClick={() => setIsMenuOpen(!isMenuOpen)}
+                  className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
+                >
+                  {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                </button>
+                {isMenuOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 bg-black bg-opacity-50 z-40"
+                      onClick={() => setIsMenuOpen(false)}
+                    ></div>
+                    <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
+                      <div className="py-2">
+                        <button
+                          onClick={() => {
+                            handleHardReload();
+                            setIsMenuOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                        >
+                          <RefreshCw size={18} />
+                          Hard Reload
+                        </button>
+                        <div className="border-t border-gray-200 my-1"></div>
+                        <button
+                          onClick={() => {
+                            setEditingTask(null);
+                            setIsTaskModalOpen(true);
+                            setIsMenuOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                        >
+                          <Plus size={18} />
+                          Add Task
+                        </button>
+                        <button
+                          onClick={() => {
+                            setIsImportModalOpen(true);
+                            setIsMenuOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                        >
+                          <Upload size={18} />
+                          Import Excel
+                        </button>
+                        <div className="border-t border-gray-200 my-1"></div>
+                        <button
+                          onClick={() => {
+                            exportToPDF();
+                            setIsMenuOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                        >
+                          <FileText size={18} />
+                          Export PDF
+                        </button>
+                        <button
+                          onClick={() => {
+                            exportToCSV();
+                            setIsMenuOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                        >
+                          <Download size={18} />
+                          Export CSV
+                        </button>
+                        <div className="border-t border-gray-200 my-1"></div>
+                        <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Management</div>
               <Link
                 to="/engineers-management"
-                className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors shadow-md"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
               >
                 <UserPlus size={18} />
                 Engineers Management
               </Link>
+              <Link
+                to="/services-management"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+              >
+                <Layers size={18} />
+                Services Management
+              </Link>
               <button
-                onClick={() => setIsNotificationPanelOpen(true)}
-                className="relative flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors shadow-md"
+                          onClick={() => {
+                            setIsNotificationPanelOpen(true);
+                            setIsMenuOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 relative"
               >
                 <Bell size={18} />
+                          Notifications
                 {unreadNotificationCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                            <span className="ml-auto bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
                     {unreadNotificationCount}
                   </span>
                 )}
               </button>
+                        <div className="border-t border-gray-200 my-1"></div>
               <button
-                onClick={logout}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-md"
+                          onClick={() => {
+                            logout();
+                            setIsMenuOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
               >
                 <LogOut size={18} />
                 Logout
               </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Month Summary */}
+          {/* Year Summary */}
           <div className="bg-main rounded-lg shadow-lg p-6 mb-6 text-white">
             <div className="flex items-center justify-between mb-4">
               <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
+                <div className="flex items-center gap-3 mb-4">
                   <h2 className="text-2xl font-bold">
-                    {summaryMonth === currentMonth && summaryYear === currentYear 
-                      ? 'Current Month Summary' 
-                      : 'Month Summary'}
+                    {selectedYear === currentYear ? 'Current Year Summary' : 'Year Summary'}
                   </h2>
                   <select
-                    value={summaryMonth}
-                    onChange={(e) => setSummaryMonth(e.target.value)}
-                    className="px-3 py-1.5 bg-white bg-opacity-20 border border-white border-opacity-30 rounded-lg text-white text-sm focus:ring-2 focus:ring-white focus:outline-none backdrop-blur-sm"
-                    style={{ color: 'white' }}
-                  >
-                    {uniqueSummaryMonths.map(month => (
-                      <option key={month} value={month} style={{ color: '#1f2937' }}>{month}</option>
-                    ))}
-                  </select>
-                  <select
-                    value={summaryYear}
-                    onChange={(e) => setSummaryYear(parseInt(e.target.value))}
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(parseInt(e.target.value))}
                     className="px-3 py-1.5 bg-white bg-opacity-20 border border-white border-opacity-30 rounded-lg text-white text-sm focus:ring-2 focus:ring-white focus:outline-none backdrop-blur-sm"
                     style={{ color: 'white' }}
                   >
@@ -539,49 +943,148 @@ export default function DirectorDashboard() {
                     ))}
                   </select>
                 </div>
-                <p className="text-main-100">{summaryMonth} {summaryYear}</p>
+                
+                {/* Summary Filters */}
+                <div className="flex items-center gap-3 mb-4 flex-wrap">
+                  <select
+                    value={summaryServiceFilter}
+                    onChange={(e) => setSummaryServiceFilter(e.target.value)}
+                    className="px-3 py-1.5 bg-white bg-opacity-20 border border-white border-opacity-30 rounded-lg text-white text-sm focus:ring-2 focus:ring-white focus:outline-none backdrop-blur-sm"
+                    style={{ color: 'white' }}
+                  >
+                    <option value="all" style={{ color: '#1f2937' }}>All Services</option>
+                    {uniqueServices.map(service => (
+                      <option key={service} value={service} style={{ color: '#1f2937' }}>{service}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={summaryEngineerFilter}
+                    onChange={(e) => setSummaryEngineerFilter(e.target.value)}
+                    className="px-3 py-1.5 bg-white bg-opacity-20 border border-white border-opacity-30 rounded-lg text-white text-sm focus:ring-2 focus:ring-white focus:outline-none backdrop-blur-sm"
+                    style={{ color: 'white' }}
+                  >
+                    <option value="all" style={{ color: '#1f2937' }}>All Engineers</option>
+                    {engineers.map(engineer => (
+                      <option key={engineer.id} value={engineer.name} style={{ color: '#1f2937' }}>{engineer.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => setIsServicesSummaryModalOpen(true)}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-white bg-opacity-20 border border-white border-opacity-30 rounded-lg text-white text-sm hover:bg-opacity-30 transition-colors backdrop-blur-sm"
+                  >
+                    <Layers size={16} />
+                    View Services Summary
+                  </button>
+                  <button
+                    onClick={() => setIsEngineerSummaryModalOpen(true)}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-white bg-opacity-20 border border-white border-opacity-30 rounded-lg text-white text-sm hover:bg-opacity-30 transition-colors backdrop-blur-sm"
+                  >
+                    <User size={16} />
+                    View Engineers Summary
+                  </button>
+                  <button
+                    onClick={() => setIsEngineerServicesViewModalOpen(true)}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-white bg-opacity-20 border border-white border-opacity-30 rounded-lg text-white text-sm hover:bg-opacity-30 transition-colors backdrop-blur-sm"
+                  >
+                    <Layers size={16} />
+                    Engineer Tasks by Service
+                  </button>
+                  <button
+                    onClick={() => setIsServiceEngineersViewModalOpen(true)}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-white bg-opacity-20 border border-white border-opacity-30 rounded-lg text-white text-sm hover:bg-opacity-30 transition-colors backdrop-blur-sm"
+                  >
+                    <Layers size={16} />
+                    Services by Engineers
+                  </button>
+                </div>
               </div>
               <div className="text-right">
-                <div className="text-sm opacity-90 mb-1">Total Tasks This Month</div>
-                <div className="text-4xl font-bold">{selectedMonthTasks.length}</div>
-              </div>
-            </div>
+                <div className="text-sm opacity-90 mb-1">Total Tasks This Year</div>
+                <div className="text-4xl font-bold">{yearTotal}</div>
+                </div>
+                </div>
+            
+            {/* Year Stats */}
             <div className="grid grid-cols-3 gap-4 mb-6">
               <div className="bg-white bg-opacity-20 rounded-lg p-4 backdrop-blur-sm">
                 <div className="text-sm opacity-90 mb-1">Pending</div>
-                <div className="text-2xl font-bold">{selectedMonthPending}</div>
+                <div className="text-2xl font-bold">{yearPending}</div>
               </div>
               <div className="bg-white bg-opacity-20 rounded-lg p-4 backdrop-blur-sm">
                 <div className="text-sm opacity-90 mb-1">In Progress</div>
-                <div className="text-2xl font-bold">{selectedMonthInProgress}</div>
+                <div className="text-2xl font-bold">{yearInProgress}</div>
               </div>
               <div className="bg-white bg-opacity-20 rounded-lg p-4 backdrop-blur-sm">
                 <div className="text-sm opacity-90 mb-1">Completed</div>
-                <div className="text-2xl font-bold">{selectedMonthCompleted}</div>
+                <div className="text-2xl font-bold">{yearCompleted}</div>
               </div>
             </div>
             
-            {/* Weekly Breakdown */}
+
+            {/* Months Breakdown */}
             <div className="border-t border-white border-opacity-30 pt-4">
-              <h3 className="text-lg font-semibold mb-3 opacity-90">Weekly Breakdown</h3>
+              <h3 className="text-lg font-semibold mb-3 opacity-90">Months Breakdown</h3>
+              <div className="space-y-3">
+                {monthStats.map((monthStat) => {
+                  const isExpanded = expandedMonths.has(monthStat.month);
+                  const weeklyBreakdown = getWeeklyBreakdown(monthStat.month);
+                  const isCurrentMonth = monthStat.month === currentMonth && selectedYear === currentYear;
+                  
+                  return (
+                    <div 
+                      key={monthStat.month}
+                      className={`bg-white bg-opacity-20 rounded-lg p-4 backdrop-blur-sm border-2 ${
+                        isCurrentMonth ? 'border-yellow-300 border-opacity-80' : 'border-transparent'
+                      }`}
+                    >
+                      <div 
+                        className="flex items-center justify-between cursor-pointer"
+                        onClick={() => toggleMonthExpansion(monthStat.month)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="text-sm font-semibold opacity-90">
+                            {monthStat.month}
+                            {isCurrentMonth && (
+                              <span className="ml-2 text-xs text-yellow-300">(Current)</span>
+                            )}
+                          </div>
+                          <div className="text-xs opacity-75">
+                            Total: {monthStat.total} | 
+                            Pending: {monthStat.pending} | 
+                            In Progress: {monthStat.inProgress} | 
+                            Completed: {monthStat.completed}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="text-lg font-bold">{monthStat.total}</div>
+                          <span className="text-xs opacity-75">
+                            {isExpanded ? '▼' : '▶'}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Weekly Breakdown (expandable) */}
+                      {isExpanded && (
+                        <div className="mt-4 pt-4 border-t border-white border-opacity-20">
+                          <h4 className="text-sm font-semibold mb-3 opacity-90">Weekly Breakdown</h4>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 {weeklyBreakdown.map((weekData) => (
                   <div 
                     key={weekData.week} 
-                    className={`bg-white bg-opacity-20 rounded-lg p-4 backdrop-blur-sm border-2 ${
-                      weekData.week === currentWeek && summaryMonth === currentMonth && summaryYear === currentYear
-                        ? 'border-yellow-300 border-opacity-80' 
-                        : 'border-transparent'
+                                className={`bg-white bg-opacity-10 rounded-lg p-3 backdrop-blur-sm border ${
+                                  weekData.week === currentWeek && isCurrentMonth
+                                    ? 'border-yellow-300 border-opacity-60' 
+                                    : 'border-white border-opacity-10'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <div className="text-sm font-semibold opacity-90">
+                                  <div className="text-xs font-semibold opacity-90">
                         Week {weekData.week}
-                        {weekData.week === currentWeek && summaryMonth === currentMonth && summaryYear === currentYear && (
+                                    {weekData.week === currentWeek && isCurrentMonth && (
                           <span className="ml-1 text-xs text-yellow-300">(Current)</span>
                         )}
                       </div>
-                      <div className="text-lg font-bold">{weekData.total}</div>
+                                  <div className="text-sm font-bold">{weekData.total}</div>
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-xs">
                       <div>
@@ -599,6 +1102,12 @@ export default function DirectorDashboard() {
                     </div>
                   </div>
                 ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -753,11 +1262,15 @@ export default function DirectorDashboard() {
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={statusPieData}
+                  data={statusPieData.filter(d => d.value > 0)}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent, value }) => {
+                    // Only show label if value > 0 and percent is significant (> 5%)
+                    if (value === 0 || percent < 0.05) return '';
+                    return `${name}: ${(percent * 100).toFixed(0)}%`;
+                  }}
                   outerRadius={100}
                   fill="#8884d8"
                   dataKey="value"
@@ -766,7 +1279,22 @@ export default function DirectorDashboard() {
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip 
+                  formatter={(value: number, name: string) => {
+                    if (value === 0) return null;
+                    return [`${value} (${((value / statusPieData.reduce((sum, d) => sum + d.value, 0)) * 100).toFixed(1)}%)`, name];
+                  }}
+                />
+                <Legend 
+                  wrapperStyle={{ paddingTop: '20px' }}
+                  formatter={(value: string) => {
+                    const dataEntry = statusPieData.find(d => d.name === value);
+                    if (!dataEntry || dataEntry.value === 0) return null;
+                    const total = statusPieData.reduce((sum, d) => sum + d.value, 0);
+                    const percent = total > 0 ? ((dataEntry.value / total) * 100).toFixed(0) : '0';
+                    return `${value}: ${percent}%`;
+                  }}
+                />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -777,11 +1305,15 @@ export default function DirectorDashboard() {
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={priorityPieData}
+                  data={priorityPieData.filter(d => d.value > 0)}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent, value }) => {
+                    // Only show label if value > 0 and percent is significant (> 5%)
+                    if (value === 0 || percent < 0.05) return '';
+                    return `${name}: ${(percent * 100).toFixed(0)}%`;
+                  }}
                   outerRadius={100}
                   fill="#8884d8"
                   dataKey="value"
@@ -790,7 +1322,22 @@ export default function DirectorDashboard() {
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip 
+                  formatter={(value: number, name: string) => {
+                    if (value === 0) return null;
+                    return [`${value} (${((value / priorityPieData.reduce((sum, d) => sum + d.value, 0)) * 100).toFixed(1)}%)`, name];
+                  }}
+                />
+                <Legend 
+                  wrapperStyle={{ paddingTop: '20px' }}
+                  formatter={(value: string) => {
+                    const dataEntry = priorityPieData.find(d => d.name === value);
+                    if (!dataEntry || dataEntry.value === 0) return null;
+                    const total = priorityPieData.reduce((sum, d) => sum + d.value, 0);
+                    const percent = total > 0 ? ((dataEntry.value / total) * 100).toFixed(0) : '0';
+                    return `${value}: ${percent}%`;
+                  }}
+                />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -909,6 +1456,7 @@ export default function DirectorDashboard() {
             setEditingTask(null);
           }}
           onSave={editingTask ? (task) => handleUpdateTask(task as Task) : handleAddTask}
+          onSaveMultiple={!editingTask ? handleAddMultipleTasks : undefined}
           task={editingTask}
           engineers={engineers}
           services={services}
@@ -926,6 +1474,82 @@ export default function DirectorDashboard() {
           }}
         />
       )}
+
+      {/* Import Modal */}
+      <ImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onImportComplete={() => {
+          loadData(true); // Force reload after import
+          checkNotifications();
+        }}
+      />
+
+      {/* Services Summary Modal */}
+      <ServicesSummaryModal
+        isOpen={isServicesSummaryModalOpen}
+        onClose={() => setIsServicesSummaryModalOpen(false)}
+        yearTasks={yearTasks}
+        monthsInSelectedYear={monthsInSelectedYear}
+        selectedYear={selectedYear}
+      />
+
+      {/* Engineers Summary Modal */}
+      <EngineerSummaryModal
+        isOpen={isEngineerSummaryModalOpen}
+        onClose={() => setIsEngineerSummaryModalOpen(false)}
+        yearTasks={yearTasks}
+        monthsInSelectedYear={monthsInSelectedYear}
+        selectedYear={selectedYear}
+      />
+
+      {/* Engineer Services View Modal */}
+      <EngineerServicesViewModal
+        isOpen={isEngineerServicesViewModalOpen}
+        onClose={() => setIsEngineerServicesViewModalOpen(false)}
+        yearTasks={yearTasks}
+        engineers={engineers}
+        selectedYear={selectedYear}
+      />
+
+      {/* Service Engineers View Modal */}
+      <ServiceEngineersViewModal
+        isOpen={isServiceEngineersViewModalOpen}
+        onClose={() => setIsServiceEngineersViewModalOpen(false)}
+        yearTasks={yearTasks}
+        engineers={engineers}
+        selectedYear={selectedYear}
+      />
+
+      {/* Floating Action Buttons */}
+      <div className="fixed bottom-6 right-6 flex items-center gap-3 z-40">
+        {/* Floating Reload Button */}
+        <button
+          onClick={handleHardReload}
+          className="w-14 h-14 bg-gray-700 hover:bg-gray-800 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group"
+          title="Hard Reload (Clear Cache & Refresh)"
+        >
+          <RefreshCw size={24} />
+        </button>
+
+        {/* Floating Chatbot Button */}
+        <button
+          onClick={() => setIsChatbotOpen(true)}
+          className="w-14 h-14 bg-green-600 hover:bg-green-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group relative"
+          title="Ask Assistant"
+        >
+          <Bot size={24} />
+          {isChatbotOpen && (
+            <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
+          )}
+        </button>
+      </div>
+
+      {/* Chatbot */}
+      <Chatbot
+        isOpen={isChatbotOpen}
+        onClose={() => setIsChatbotOpen(false)}
+      />
 
     </div>
   );

@@ -3,36 +3,71 @@ import { Task, Service } from '../types';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import TaskModal from './TaskModal';
-import { Plus, LogOut, Users, CheckCircle, Clock, Circle, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, LogOut, Users, CheckCircle, Clock, Circle, Trash2, ChevronDown, ChevronRight, Menu, X, User } from 'lucide-react';
 
 export default function EngineerDashboard() {
   const { user, logout } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'in-progress' | 'completed'>('all');
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (user) {
+      loadData();
+    }
+  }, [user]);
+
+  // Close menus when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.menu-container')) {
+        setIsUserMenuOpen(false);
+        setIsMenuOpen(false);
+      }
+    };
+
+    if (isUserMenuOpen || isMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isUserMenuOpen, isMenuOpen]);
 
   const loadData = async () => {
+    setIsLoading(true);
     try {
+      if (!user?.engineerName) {
+        // User not fully loaded yet or engineerName not set
+        setIsLoading(false);
+        return;
+      }
+
       const [tasksData, servicesData] = await Promise.all([
         api.getTasks(),
         api.getServices(),
       ]);
       
-      // Filter to only show engineer's own tasks
-      const myTasks = tasksData.filter((t: Task) => 
-        user?.engineerName && t.engineer === user.engineerName
-      );
+      // Backend should already filter tasks for engineers, but double-check on frontend
+      // Filter to only show engineer's own tasks (case-insensitive comparison)
+      const myTasks = tasksData.filter((t: Task) => {
+        if (!user?.engineerName) return false;
+        // Case-insensitive comparison to handle any name mismatches
+        const taskEngineer = t.engineer?.toLowerCase().trim();
+        const userEngineer = user.engineerName.toLowerCase().trim();
+        return taskEngineer === userEngineer;
+      });
       
       setTasks(myTasks);
       setServices(servicesData);
     } catch (error) {
       console.error('Error loading data:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -51,6 +86,25 @@ export default function EngineerDashboard() {
     } catch (error) {
       console.error('Error creating task:', error);
       alert('Failed to create task. Please try again.');
+    }
+  };
+
+  const handleAddMultipleTasks = async (tasks: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>[]) => {
+    try {
+      // Auto-assign to current engineer
+      const tasksToCreate = tasks.map(task => ({
+        ...task,
+        engineer: user?.engineerName || '',
+      }));
+      
+      await api.createTasksBulk(tasksToCreate);
+      await loadData();
+      setIsTaskModalOpen(false);
+      setEditingTask(null);
+      alert(`Successfully created ${tasks.length} tasks!`);
+    } catch (error) {
+      console.error('Error creating tasks:', error);
+      alert('Failed to create tasks. Please try again.');
     }
   };
 
@@ -256,35 +310,189 @@ export default function EngineerDashboard() {
     setExpandedWeeks(newExpanded);
   };
 
-  return (
+  // Skeleton Loading Component
+  const SkeletonLoader = () => (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-6">
-        {/* Header */}
+        {/* Header Skeleton */}
         <div className="mb-6">
           <div className="flex justify-between items-center mb-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-1">
-                My Tasks
-              </h1>
-              <p className="text-gray-600">
-                Welcome, <span className="font-semibold">{user?.name}</span>
-              </p>
+              <div className="h-8 w-48 bg-gray-200 rounded animate-pulse mb-2"></div>
+              <div className="h-4 w-64 bg-gray-200 rounded animate-pulse"></div>
             </div>
             <div className="flex gap-3">
-              <a
-                href="/engineers"
-                className="flex items-center gap-2 px-4 py-2 bg-main text-white rounded-lg hover:bg-main-700 transition-colors shadow-md"
-              >
-                <Users size={18} />
-                View All Engineers
-              </a>
-              <button
-                onClick={logout}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-md"
-              >
-                <LogOut size={18} />
-                Logout
-              </button>
+              {[1, 2].map(i => (
+                <div key={i} className="h-10 w-32 bg-gray-200 rounded animate-pulse"></div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Summary Card Skeleton */}
+        <div className="bg-main rounded-lg shadow-lg p-6 mb-6">
+          <div className="h-8 w-48 bg-white bg-opacity-20 rounded animate-pulse mb-4"></div>
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="bg-white bg-opacity-20 rounded-lg p-4">
+                <div className="h-4 w-20 bg-white bg-opacity-30 rounded animate-pulse mb-2"></div>
+                <div className="h-8 w-16 bg-white bg-opacity-30 rounded animate-pulse"></div>
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="bg-white bg-opacity-20 rounded-lg p-4">
+                <div className="h-4 w-16 bg-white bg-opacity-30 rounded animate-pulse mb-2"></div>
+                <div className="h-6 w-12 bg-white bg-opacity-30 rounded animate-pulse"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Tasks List Skeleton */}
+        <div className="bg-white rounded-lg shadow-lg p-4">
+          <div className="h-6 w-32 bg-gray-200 rounded animate-pulse mb-4"></div>
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map(i => (
+              <div key={i} className="h-24 bg-gray-100 rounded animate-pulse"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (isLoading) {
+    return <SkeletonLoader />;
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto px-4 py-6">
+        {/* Enhanced Header with Menu */}
+        <div className="mb-6">
+          <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-4 mb-4">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-4">
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">
+                    My Tasks
+                  </h1>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Welcome, <span className="font-semibold">{user?.name}</span>
+                  </p>
+                </div>
+              </div>
+              
+              {/* Desktop Menu */}
+              <div className="hidden md:flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setEditingTask(null);
+                    setIsTaskModalOpen(true);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-main text-white rounded-lg hover:bg-main-700 transition-colors shadow-md"
+                >
+                  <Plus size={18} />
+                  Add Task
+                </button>
+                <a
+                  href="/engineers"
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors shadow-md"
+                >
+                  <Users size={18} />
+                  Engineers
+                </a>
+                <div className="relative menu-container">
+                  <button
+                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors shadow-md"
+                  >
+                    <User size={18} />
+                    <span className="hidden lg:inline">{user?.name}</span>
+                    <ChevronDown size={16} className={isUserMenuOpen ? 'rotate-180' : ''} />
+                  </button>
+                  {isUserMenuOpen && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setIsUserMenuOpen(false)}
+                      ></div>
+                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
+                        <div className="py-1">
+                          <div className="px-4 py-2 border-b border-gray-200">
+                            <p className="text-sm font-semibold text-gray-900">{user?.name}</p>
+                            <p className="text-xs text-gray-500">{user?.email}</p>
+                          </div>
+                          <button
+                            onClick={() => {
+                              logout();
+                              setIsUserMenuOpen(false);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                          >
+                            <LogOut size={16} />
+                            Logout
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Mobile Menu Button */}
+              <div className="md:hidden relative">
+                <button
+                  onClick={() => setIsMenuOpen(!isMenuOpen)}
+                  className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
+                >
+                  {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                </button>
+                {isMenuOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 bg-black bg-opacity-50 z-40"
+                      onClick={() => setIsMenuOpen(false)}
+                    ></div>
+                    <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
+                      <div className="py-2">
+                        <button
+                          onClick={() => {
+                            setEditingTask(null);
+                            setIsTaskModalOpen(true);
+                            setIsMenuOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                        >
+                          <Plus size={18} />
+                          Add Task
+                        </button>
+                        <a
+                          href="/engineers"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                        >
+                          <Users size={18} />
+                          View All Engineers
+                        </a>
+                        <div className="border-t border-gray-200 my-1"></div>
+                        <button
+                          onClick={() => {
+                            logout();
+                            setIsMenuOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                        >
+                          <LogOut size={18} />
+                          Logout
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
@@ -534,8 +742,8 @@ export default function EngineerDashboard() {
                                           <div className="text-sm text-gray-600 space-y-1">
                                             <p>Week {task.week} • {task.month} {task.year}</p>
                                             <p>Priority: <span className="font-medium">{task.priority}</span></p>
-                                            {task.notes && (
-                                              <p className="text-gray-500 italic">"{task.notes}"</p>
+                                            {task.description && (
+                                              <p className="text-gray-500 italic">"{task.description}"</p>
                                             )}
                                           </div>
                                         </div>
@@ -604,6 +812,7 @@ export default function EngineerDashboard() {
               setEditingTask(null);
             }}
             onSave={editingTask ? (task) => handleUpdateTask(task as Task) : handleAddTask}
+            onSaveMultiple={!editingTask ? handleAddMultipleTasks : undefined}
             task={editingTask}
             engineers={[]}
             services={services}

@@ -128,7 +128,7 @@ export default function EngineersView() {
     filteredTasks = filteredTasks.filter(t =>
       t.service.toLowerCase().includes(query) ||
       t.engineer.toLowerCase().includes(query) ||
-      (t.notes && t.notes.toLowerCase().includes(query))
+      (t.description && t.description.toLowerCase().includes(query))
     );
   }
 
@@ -518,8 +518,8 @@ export default function EngineersView() {
                         </div>
                         <div className="text-sm text-gray-600 space-y-1">
                           <p>Week {task.week} • {task.month} {task.year}</p>
-                          {task.notes && (
-                            <p className="text-gray-500 italic">"{task.notes}"</p>
+                          {task.description && (
+                            <p className="text-gray-500 italic">"{task.description}"</p>
                           )}
                         </div>
                       </div>
@@ -654,8 +654,8 @@ export default function EngineersView() {
                                                 </div>
                                                 <div className="text-sm text-gray-600 space-y-1">
                                                   <p>Week {task.week} • {task.month} {task.year}</p>
-                                                  {task.notes && (
-                                                    <p className="text-gray-500 italic">"{task.notes}"</p>
+                                                  {task.description && (
+                                                    <p className="text-gray-500 italic">"{task.description}"</p>
                                                   )}
                                                 </div>
                                               </div>
