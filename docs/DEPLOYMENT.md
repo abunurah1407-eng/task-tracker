@@ -49,23 +49,22 @@ This guide covers deploying the Task Tracker application to production.
 
 ### Option 2: Docker
 
-1. **Create Dockerfile:**
-   ```dockerfile
-   FROM node:18-alpine
-   WORKDIR /app
-   COPY package*.json ./
-   RUN npm ci --only=production
-   COPY . .
-   RUN npm run build
-   EXPOSE 3001
-   CMD ["node", "dist/index.js"]
+1. **Build and run:**
+   ```bash
+   docker compose build
+   docker compose up -d
    ```
 
-2. **Build and run:**
+2. **Run migrations and seed:**
    ```bash
-   docker build -t task-tracker-api .
-   docker run -d -p 3001:3001 --env-file .env task-tracker-api
+   docker compose exec backend npm run migrate
+   docker compose exec backend npm run seed
    ```
+
+3. **Access:**
+   - Frontend: http://localhost
+   - Backend: http://localhost:3001
+   - Database Admin: http://localhost:8080
 
 ### Option 3: Cloud Platforms
 

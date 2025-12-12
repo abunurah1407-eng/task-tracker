@@ -79,98 +79,35 @@ Task Tracker/
 
 ### Prerequisites
 
-- Node.js (v18 or higher) ✅
-- PostgreSQL (v12 or higher) ✅
-- npm or yarn
+- Docker Desktop installed and running
+- Docker Compose (included with Docker Desktop)
 
-### Installation
+### Quick Start with Docker
 
-1. **Clone or navigate to the project directory**
-
-2. **Set up PostgreSQL Database**
-   ```powershell
-   # Run the database setup script
-   .\setup-database.ps1
-   ```
-   Enter your PostgreSQL password when prompted.
-
-3. **Configure Backend**
+1. **Start all services:**
    ```bash
-   cd backend
-   npm install
-   ```
-   
-   Edit `backend/.env` and set your PostgreSQL password:
-   ```env
-   DB_PASSWORD=your_postgres_password
+   docker compose up -d
    ```
 
-4. **Run Database Migrations**
+2. **Run database setup:**
    ```bash
-   npm run migrate
+   # Wait a few seconds for PostgreSQL to start, then:
+   docker compose exec backend npm run migrate
+   docker compose exec backend npm run seed
    ```
 
-5. **Seed the Database**
-   ```bash
-   npm run seed
-   ```
+3. **Access the application:**
+   - **Frontend**: http://localhost
+   - **Backend API**: http://localhost:3001
+   - **Database Admin**: http://localhost:8080
 
-6. **Start Backend Server**
-   ```bash
-   npm run dev
-   ```
-   Backend will run on `http://localhost:3001`
-
-7. **Set up Frontend** (in root directory)
-   ```bash
-   npm install
-   ```
-
-8. **Start Frontend**
-   ```bash
-   npm run dev
-   ```
-   Frontend will run on `http://localhost:5173`
-
-## ⚙️ Configuration
-
-### Backend Environment Variables
-
-Create `backend/.env`:
-
-```env
-# Server
-PORT=3001
-NODE_ENV=development
-
-# Database
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=task_tracker
-DB_USER=postgres
-DB_PASSWORD=your_password
-
-# JWT
-JWT_SECRET=your_secret_key
-JWT_EXPIRES_IN=7d
-
-# CORS
-CORS_ORIGIN=http://localhost:5173
-```
-
-### Frontend Environment Variables (Optional)
-
-Create `.env` in root directory:
-
-```env
-VITE_API_URL=http://localhost:3001/api
-```
+For detailed Docker instructions, see [DOCKER.md](./DOCKER.md) or [DOCKER_QUICK_START.md](./DOCKER_QUICK_START.md)
 
 ## 📖 Usage Guide
 
 ### Login
 
-1. Open `http://localhost:5173`
+1. Open `http://localhost`
 2. Choose login method:
    - **Email Login**: Use email and password
    - **AD Login**: Use username (simulated)
@@ -331,100 +268,44 @@ Authorization: Bearer <token>
 
 ## 🔧 Troubleshooting
 
-### Backend Issues
+### Docker Issues
+
+**Containers Won't Start**
+- Check Docker is running: `docker ps`
+- Check logs: `docker compose logs`
+- Verify ports are not in use
 
 **Database Connection Error**
-```
-Error: password authentication failed
-```
-- Solution: Check `DB_PASSWORD` in `backend/.env`
-- Verify PostgreSQL service is running: `Get-Service postgresql-x64-17`
+- Verify PostgreSQL container is healthy: `docker compose ps`
+- Check database logs: `docker compose logs postgres`
+- Restart containers: `docker compose restart`
 
-**Port Already in Use**
-```
-Error: listen EADDRINUSE: address already in use :::3001
-```
-- Solution: Change `PORT` in `backend/.env` or stop the process using port 3001
+**Port Conflicts**
+- Modify ports in `docker-compose.yml` if needed
+- Stop conflicting services
 
-**Migration Errors**
+**Rebuild Everything**
+```bash
+docker compose down -v
+docker compose build --no-cache
+docker compose up -d
+docker compose exec backend npm run migrate
+docker compose exec backend npm run seed
 ```
-Error: relation already exists
-```
-- Solution: Database tables already exist, this is normal. Continue with seeding.
-
-### Frontend Issues
-
-**API Connection Error**
-```
-Failed to fetch
-```
-- Solution: 
-  - Verify backend is running on `http://localhost:3001`
-  - Check `VITE_API_URL` in `.env`
-  - Check CORS settings in backend
-
-**Login Not Working**
-- Solution:
-  - Verify backend is running
-  - Check database is seeded (users exist)
-  - Check browser console for errors
-
-**Notifications Not Showing**
-- Solution:
-  - Check user is logged in
-  - Verify notifications exist in database
-  - Check browser console for API errors
-
-### Database Issues
-
-**PostgreSQL Service Not Running**
-```powershell
-Start-Service postgresql-x64-17
-```
-
-**Reset Database**
-```sql
-DROP DATABASE task_tracker;
-CREATE DATABASE task_tracker;
-```
-Then run migrations and seed again.
 
 ## 💻 Development
 
-### Running in Development Mode
+### Running in Development Mode with Docker
 
-**Backend:**
 ```bash
-cd backend
-npm run dev
-```
-
-**Frontend:**
-```bash
-npm run dev
-```
-
-### Building for Production
-
-**Backend:**
-```bash
-cd backend
-npm run build
-npm start
-```
-
-**Frontend:**
-```bash
-npm run build
+docker compose -f docker-compose.dev.yml up -d
 ```
 
 ### Database Migrations
 
-Create new migration:
 ```bash
-cd backend
-# Edit src/db/schema.sql
-npm run migrate
+docker compose exec backend npm run migrate
+docker compose exec backend npm run seed
 ```
 
 ### Adding New Features

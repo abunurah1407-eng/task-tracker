@@ -4,43 +4,47 @@ Backend API for Task Tracker application built with Node.js, Express, TypeScript
 
 ## Prerequisites
 
-- Node.js (v18 or higher)
-- PostgreSQL (v12 or higher)
-- npm or yarn
+- Docker Desktop installed and running
+- Docker Compose (included with Docker Desktop)
 
-## Setup
+## Setup with Docker
 
-1. **Install dependencies:**
-```bash
-npm install
-```
+The backend runs automatically as part of the Docker Compose setup. See the main [README.md](../README.md) and [DOCKER.md](../DOCKER.md) for complete setup instructions.
 
-2. **Set up PostgreSQL database:**
-   - Create a new database:
-   ```sql
-   CREATE DATABASE task_tracker;
+### Quick Start
+
+1. **Start all services:**
+   ```bash
+   docker compose up -d
    ```
 
-3. **Configure environment variables:**
-   - Copy `.env.example` to `.env`
-   - Update database credentials in `.env`
+2. **Run database migrations:**
+   ```bash
+   docker compose exec backend npm run migrate
+   ```
 
-4. **Run migrations:**
-```bash
-npm run migrate
-```
-
-5. **Seed the database (optional):**
-```bash
-npm run seed
-```
-
-6. **Start the development server:**
-```bash
-npm run dev
-```
+3. **Seed the database:**
+   ```bash
+   docker compose exec backend npm run seed
+   ```
 
 The API will be available at `http://localhost:3001`
+
+### Running Commands in Backend Container
+
+```bash
+# Access backend container shell
+docker compose exec backend sh
+
+# Run migrations
+docker compose exec backend npm run migrate
+
+# Run seeds
+docker compose exec backend npm run seed
+
+# View logs
+docker compose logs -f backend
+```
 
 ## API Endpoints
 
