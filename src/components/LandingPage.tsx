@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Shield, Users, Zap, CheckCircle2, BarChart3, Clock, Target, ArrowRight, Sparkles } from 'lucide-react';
+import { ShieldCheck, Users, Zap, CheckCircle2, BarChart3, Clock, Target, ArrowRight, Sparkles } from 'lucide-react';
 import etecLogoUrl from '/etec-logo.svg';
 
 export default function LandingPage() {
@@ -79,15 +79,488 @@ export default function LandingPage() {
       </div>
 
       {/* Enhanced Header */}
-      <header className="relative z-30 bg-gradient-to-r from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-sm border-b border-slate-700/50 shadow-lg flex-shrink-0">
-        <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
+      <header className="relative z-30 bg-gradient-to-r from-slate-950 via-indigo-950/98 via-blue-950/95 to-slate-950 backdrop-blur-xl border-b-2 border-cyan-400/60 shadow-2xl flex-shrink-0 overflow-hidden">
+        {/* Advanced Hexagonal Security Grid */}
+        <div className="absolute inset-0 opacity-20">
+          <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="advancedHex" x="0" y="0" width="80" height="69.28" patternUnits="userSpaceOnUse">
+                <polygon points="40,4 60,18 60,46 40,60 20,46 20,18" fill="none" stroke="#06b6d4" strokeWidth="1" opacity="0.5"/>
+                <polygon points="40,4 50,11 50,25 40,32 30,25 30,11" fill="none" stroke="#3b82f6" strokeWidth="0.8" opacity="0.4"/>
+                <circle cx="40" cy="32" r="2" fill="#06b6d4" opacity="0.6"/>
+                <circle cx="50" cy="18" r="1.5" fill="#3b82f6" opacity="0.5"/>
+                <circle cx="30" cy="18" r="1.5" fill="#3b82f6" opacity="0.5"/>
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#advancedHex)" />
+          </svg>
+        </div>
+        
+        {/* Complex Network Topology */}
+        <div className="absolute inset-0 opacity-25">
+          <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            {/* Primary network paths */}
+            <path d="M0,20 L150,20 L200,12 L350,12 L400,20 L600,20 L650,12 L800,12" 
+                  stroke="#06b6d4" strokeWidth="2" fill="none" opacity="0.5" strokeDasharray="5,3"/>
+            <path d="M0,40 L120,40 L180,32 L320,32 L380,40 L580,40 L640,32 L800,32" 
+                  stroke="#3b82f6" strokeWidth="2" fill="none" opacity="0.5" strokeDasharray="5,3"/>
+            
+            {/* Secondary data streams */}
+            <path d="M50,15 Q200,10 350,15 T650,15" 
+                  stroke="#22d3ee" strokeWidth="1.5" fill="none" opacity="0.4"/>
+            <path d="M100,35 Q250,30 400,35 T700,35" 
+                  stroke="#60a5fa" strokeWidth="1.5" fill="none" opacity="0.4"/>
+            
+            {/* Network nodes with glow */}
+            <circle cx="200" cy="12" r="4" fill="#06b6d4" opacity="0.7">
+              <animate attributeName="opacity" values="0.7;1;0.7" dur="2s" repeatCount="indefinite"/>
+            </circle>
+            <circle cx="400" cy="20" r="4" fill="#3b82f6" opacity="0.7">
+              <animate attributeName="opacity" values="0.7;1;0.7" dur="2.5s" repeatCount="indefinite"/>
+            </circle>
+            <circle cx="180" cy="32" r="4" fill="#06b6d4" opacity="0.7">
+              <animate attributeName="opacity" values="0.7;1;0.7" dur="1.8s" repeatCount="indefinite"/>
+            </circle>
+            <circle cx="380" cy="40" r="4" fill="#3b82f6" opacity="0.7">
+              <animate attributeName="opacity" values="0.7;1;0.7" dur="2.2s" repeatCount="indefinite"/>
+            </circle>
+            
+            {/* Interconnecting security lines */}
+            <line x1="200" y1="12" x2="180" y2="32" stroke="#06b6d4" strokeWidth="1.5" opacity="0.4"/>
+            <line x1="400" y1="20" x2="380" y2="40" stroke="#3b82f6" strokeWidth="1.5" opacity="0.4"/>
+            <line x1="200" y1="12" x2="400" y2="20" stroke="#22d3ee" strokeWidth="1" opacity="0.3" strokeDasharray="3,3"/>
+          </svg>
+        </div>
+        
+        {/* Animated Scanning Beams */}
+        <div className="absolute inset-0 opacity-15">
+          <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent animate-pulse"></div>
+          <div className="absolute top-1/3 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-blue-400 to-transparent animate-pulse" style={{ animationDelay: '0.5s' }}></div>
+          <div className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent animate-pulse" style={{ animationDelay: '1s' }}></div>
+        </div>
+        
+        {/* Vertical Security Beams */}
+        <div className="absolute inset-0 opacity-25">
+          <div className="absolute top-0 left-[15%] w-0.5 h-full bg-gradient-to-b from-transparent via-cyan-400/60 to-transparent"></div>
+          <div className="absolute top-0 left-[35%] w-0.5 h-full bg-gradient-to-b from-transparent via-blue-400/60 to-transparent"></div>
+          <div className="absolute top-0 right-[35%] w-0.5 h-full bg-gradient-to-b from-transparent via-blue-400/60 to-transparent"></div>
+          <div className="absolute top-0 right-[15%] w-0.5 h-full bg-gradient-to-b from-transparent via-cyan-400/60 to-transparent"></div>
+        </div>
+        
+        {/* Data Particles Effect */}
+        <div className="absolute inset-0 opacity-10">
+          <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="100" cy="25" r="1.5" fill="#06b6d4">
+              <animate attributeName="cy" values="25;15;25" dur="3s" repeatCount="indefinite"/>
+            </circle>
+            <circle cx="300" cy="30" r="1.5" fill="#3b82f6">
+              <animate attributeName="cy" values="30;20;30" dur="2.5s" repeatCount="indefinite"/>
+            </circle>
+            <circle cx="500" cy="20" r="1.5" fill="#22d3ee">
+              <animate attributeName="cy" values="20;10;20" dur="3.5s" repeatCount="indefinite"/>
+            </circle>
+            <circle cx="700" cy="35" r="1.5" fill="#60a5fa">
+              <animate attributeName="cy" values="35;25;35" dur="2.8s" repeatCount="indefinite"/>
+            </circle>
+          </svg>
+        </div>
+        
+        {/* Glowing Corner Accents */}
+        <div className="absolute top-0 left-0 w-40 h-40 bg-gradient-to-br from-cyan-500/25 via-cyan-400/15 to-transparent blur-3xl"></div>
+        <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-bl from-blue-500/25 via-blue-400/15 to-transparent blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-40 h-40 bg-gradient-to-tr from-cyan-500/25 via-cyan-400/15 to-transparent blur-3xl"></div>
+        <div className="absolute bottom-0 right-0 w-40 h-40 bg-gradient-to-tl from-blue-500/25 via-blue-400/15 to-transparent blur-3xl"></div>
+        
+        {/* Security Matrix Code Effect */}
+        <div className="absolute inset-0 opacity-8">
+          <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="matrixCode" x="0" y="0" width="100" height="20" patternUnits="userSpaceOnUse">
+                <text x="5" y="15" fontSize="12" fill="#06b6d4" opacity="0.3" fontFamily="monospace">01</text>
+                <text x="25" y="15" fontSize="12" fill="#3b82f6" opacity="0.3" fontFamily="monospace">10</text>
+                <text x="45" y="15" fontSize="12" fill="#22d3ee" opacity="0.3" fontFamily="monospace">11</text>
+                <text x="65" y="15" fontSize="12" fill="#60a5fa" opacity="0.3" fontFamily="monospace">00</text>
+                <text x="85" y="15" fontSize="12" fill="#06b6d4" opacity="0.3" fontFamily="monospace">01</text>
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#matrixCode)" />
+          </svg>
+        </div>
+        
+        {/* Radial Security Rings */}
+        <div className="absolute inset-0 opacity-10">
+          <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="20%" cy="50%" r="30" fill="none" stroke="#06b6d4" strokeWidth="1" opacity="0.3"/>
+            <circle cx="20%" cy="50%" r="50" fill="none" stroke="#3b82f6" strokeWidth="1" opacity="0.2"/>
+            <circle cx="80%" cy="50%" r="30" fill="none" stroke="#06b6d4" strokeWidth="1" opacity="0.3"/>
+            <circle cx="80%" cy="50%" r="50" fill="none" stroke="#3b82f6" strokeWidth="1" opacity="0.2"/>
+          </svg>
+        </div>
+        
+        {/* Binary Data Stream */}
+        <div className="absolute inset-0 opacity-12">
+          <div className="absolute top-1/2 left-0 w-full h-px bg-gradient-to-r from-transparent via-cyan-400/40 to-transparent"></div>
+          <div className="absolute top-1/2 left-[10%] w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
+          <div className="absolute top-1/2 left-[30%] w-2 h-2 bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '0.3s' }}></div>
+          <div className="absolute top-1/2 left-[50%] w-2 h-2 bg-cyan-400 rounded-full animate-pulse" style={{ animationDelay: '0.6s' }}></div>
+          <div className="absolute top-1/2 left-[70%] w-2 h-2 bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '0.9s' }}></div>
+          <div className="absolute top-1/2 left-[90%] w-2 h-2 bg-cyan-400 rounded-full animate-pulse" style={{ animationDelay: '1.2s' }}></div>
+        </div>
+        
+        {/* Advanced Security Wave Patterns */}
+        <div className="absolute inset-0 opacity-15">
+          <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="waveGradient1" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.3"/>
+                <stop offset="50%" stopColor="#3b82f6" stopOpacity="0.4"/>
+                <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.3"/>
+              </linearGradient>
+              <linearGradient id="waveGradient2" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3"/>
+                <stop offset="50%" stopColor="#22d3ee" stopOpacity="0.4"/>
+                <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.3"/>
+              </linearGradient>
+            </defs>
+            <path d="M0,10 Q200,5 400,10 T800,10" fill="none" stroke="url(#waveGradient1)" strokeWidth="1.5" opacity="0.5"/>
+            <path d="M0,45 Q200,50 400,45 T800,45" fill="none" stroke="url(#waveGradient2)" strokeWidth="1.5" opacity="0.5"/>
+          </svg>
+        </div>
+        
+        {/* Encryption Key Symbols */}
+        <div className="absolute inset-0 opacity-10">
+          <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <g transform="translate(15%, 25%)">
+              <path d="M0,0 L8,0 L8,4 L12,4 L12,8 L0,8 Z" fill="none" stroke="#06b6d4" strokeWidth="1" opacity="0.4"/>
+              <circle cx="12" cy="6" r="2" fill="none" stroke="#06b6d4" strokeWidth="1" opacity="0.4"/>
+            </g>
+            <g transform="translate(85%, 25%)">
+              <path d="M0,0 L8,0 L8,4 L12,4 L12,8 L0,8 Z" fill="none" stroke="#3b82f6" strokeWidth="1" opacity="0.4"/>
+              <circle cx="12" cy="6" r="2" fill="none" stroke="#3b82f6" strokeWidth="1" opacity="0.4"/>
+            </g>
+            <g transform="translate(50%, 70%)">
+              <path d="M0,0 L8,0 L8,4 L12,4 L12,8 L0,8 Z" fill="none" stroke="#22d3ee" strokeWidth="1" opacity="0.4"/>
+              <circle cx="12" cy="6" r="2" fill="none" stroke="#22d3ee" strokeWidth="1" opacity="0.4"/>
+            </g>
+          </svg>
+        </div>
+        
+        {/* Digital Pulse Rings */}
+        <div className="absolute inset-0 opacity-8">
+          <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="10%" cy="50%" r="20" fill="none" stroke="#06b6d4" strokeWidth="1" opacity="0.3">
+              <animate attributeName="r" values="20;40;20" dur="3s" repeatCount="indefinite"/>
+              <animate attributeName="opacity" values="0.3;0.1;0.3" dur="3s" repeatCount="indefinite"/>
+            </circle>
+            <circle cx="90%" cy="50%" r="20" fill="none" stroke="#3b82f6" strokeWidth="1" opacity="0.3">
+              <animate attributeName="r" values="20;40;20" dur="3.5s" repeatCount="indefinite"/>
+              <animate attributeName="opacity" values="0.3;0.1;0.3" dur="3.5s" repeatCount="indefinite"/>
+            </circle>
+          </svg>
+        </div>
+        
+        {/* Cross-Hatch Security Grid */}
+        <div className="absolute inset-0 opacity-5">
+          <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="crossHatch" x="0" y="0" width="30" height="30" patternUnits="userSpaceOnUse">
+                <line x1="0" y1="0" x2="30" y2="30" stroke="#06b6d4" strokeWidth="0.5" opacity="0.2"/>
+                <line x1="30" y1="0" x2="0" y2="30" stroke="#3b82f6" strokeWidth="0.5" opacity="0.2"/>
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#crossHatch)" />
+          </svg>
+        </div>
+        
+        {/* Active Security Indicators */}
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute top-2 left-2 w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></div>
+          <div className="absolute top-2 left-5 w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+          <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></div>
+          <div className="absolute top-2 right-5 w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+        </div>
+        
+        {/* Firewall Protection Layers */}
+        <div className="absolute inset-0 opacity-12">
+          <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="firewallPattern" x="0" y="0" width="50" height="50" patternUnits="userSpaceOnUse">
+                <rect x="0" y="0" width="50" height="50" fill="none" stroke="#ef4444" strokeWidth="1" opacity="0.2"/>
+                <line x1="0" y1="25" x2="50" y2="25" stroke="#ef4444" strokeWidth="0.5" opacity="0.15"/>
+                <line x1="25" y1="0" x2="25" y2="50" stroke="#ef4444" strokeWidth="0.5" opacity="0.15"/>
+                <circle cx="25" cy="25" r="3" fill="#ef4444" opacity="0.2"/>
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#firewallPattern)" />
+          </svg>
+        </div>
+        
+        {/* Encryption Layers */}
+        <div className="absolute inset-0 opacity-10">
+          <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <g transform="translate(25%, 20%)">
+              <rect x="0" y="0" width="8" height="12" fill="none" stroke="#06b6d4" strokeWidth="1.5" opacity="0.4"/>
+              <circle cx="8" cy="6" r="2.5" fill="none" stroke="#06b6d4" strokeWidth="1.5" opacity="0.4"/>
+              <line x1="4" y1="4" x2="4" y2="8" stroke="#06b6d4" strokeWidth="1" opacity="0.3"/>
+            </g>
+            <g transform="translate(75%, 20%)">
+              <rect x="0" y="0" width="8" height="12" fill="none" stroke="#3b82f6" strokeWidth="1.5" opacity="0.4"/>
+              <circle cx="8" cy="6" r="2.5" fill="none" stroke="#3b82f6" strokeWidth="1.5" opacity="0.4"/>
+              <line x1="4" y1="4" x2="4" y2="8" stroke="#3b82f6" strokeWidth="1" opacity="0.3"/>
+            </g>
+          </svg>
+        </div>
+        
+        {/* Threat Detection Radar Sweep */}
+        <div className="absolute inset-0 opacity-8">
+          <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <g transform="translate(50%, 50%)">
+              <circle cx="0" cy="0" r="25" fill="none" stroke="#22d3ee" strokeWidth="1" opacity="0.3" strokeDasharray="2,2"/>
+              <circle cx="0" cy="0" r="15" fill="none" stroke="#06b6d4" strokeWidth="1" opacity="0.3" strokeDasharray="2,2"/>
+              <line x1="0" y1="0" x2="25" y2="0" stroke="#06b6d4" strokeWidth="1" opacity="0.4">
+                <animateTransform attributeName="transform" type="rotate" values="0;360" dur="8s" repeatCount="indefinite"/>
+              </line>
+            </g>
+          </svg>
+        </div>
+        
+        {/* Security Protocol Indicators */}
+        <div className="absolute inset-0 opacity-15">
+          <div className="absolute top-1/4 left-[5%] text-[8px] text-cyan-400/40 font-mono">HTTPS</div>
+          <div className="absolute top-1/4 right-[5%] text-[8px] text-blue-400/40 font-mono">TLS 1.3</div>
+          <div className="absolute bottom-1/4 left-[5%] text-[8px] text-cyan-400/40 font-mono">AES-256</div>
+          <div className="absolute bottom-1/4 right-[5%] text-[8px] text-blue-400/40 font-mono">2FA</div>
+        </div>
+        
+        {/* Data Encryption Flow */}
+        <div className="absolute inset-0 opacity-12">
+          <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0,28 L100,28 L150,22 L250,22 L300,28 L500,28 L550,22 L700,22" 
+                  stroke="#06b6d4" strokeWidth="1.5" fill="none" opacity="0.4" strokeDasharray="3,2">
+              <animate attributeName="stroke-dashoffset" values="0;-10" dur="2s" repeatCount="indefinite"/>
+            </path>
+            <path d="M0,22 L80,22 L130,28 L230,28 L280,22 L480,22 L530,28 L680,28" 
+                  stroke="#3b82f6" strokeWidth="1.5" fill="none" opacity="0.4" strokeDasharray="3,2">
+              <animate attributeName="stroke-dashoffset" values="0;-10" dur="2.5s" repeatCount="indefinite"/>
+            </path>
+          </svg>
+        </div>
+        
+        {/* Security Status Bars */}
+        <div className="absolute bottom-0 left-0 right-0 h-1 opacity-20">
+          <div className="absolute left-0 w-1/3 h-full bg-gradient-to-r from-green-500 via-green-400 to-transparent"></div>
+          <div className="absolute left-1/3 w-1/3 h-full bg-gradient-to-r from-transparent via-blue-500 to-transparent"></div>
+          <div className="absolute right-0 w-1/3 h-full bg-gradient-to-l from-green-500 via-green-400 to-transparent"></div>
+        </div>
+        
+        {/* Network Security Nodes */}
+        <div className="absolute inset-0 opacity-15">
+          <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <g>
+              <circle cx="15%" cy="30%" r="3" fill="#06b6d4" opacity="0.6">
+                <animate attributeName="opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite"/>
+              </circle>
+              <circle cx="15%" cy="30%" r="6" fill="none" stroke="#06b6d4" strokeWidth="1" opacity="0.3">
+                <animate attributeName="r" values="6;10;6" dur="2s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0.3;0;0.3" dur="2s" repeatCount="indefinite"/>
+              </circle>
+            </g>
+            <g>
+              <circle cx="85%" cy="30%" r="3" fill="#3b82f6" opacity="0.6">
+                <animate attributeName="opacity" values="0.6;1;0.6" dur="2.3s" repeatCount="indefinite"/>
+              </circle>
+              <circle cx="85%" cy="30%" r="6" fill="none" stroke="#3b82f6" strokeWidth="1" opacity="0.3">
+                <animate attributeName="r" values="6;10;6" dur="2.3s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0.3;0;0.3" dur="2.3s" repeatCount="indefinite"/>
+              </circle>
+            </g>
+            <g>
+              <circle cx="50%" cy="70%" r="3" fill="#22d3ee" opacity="0.6">
+                <animate attributeName="opacity" values="0.6;1;0.6" dur="1.8s" repeatCount="indefinite"/>
+              </circle>
+              <circle cx="50%" cy="70%" r="6" fill="none" stroke="#22d3ee" strokeWidth="1" opacity="0.3">
+                <animate attributeName="r" values="6;10;6" dur="1.8s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0.3;0;0.3" dur="1.8s" repeatCount="indefinite"/>
+              </circle>
+            </g>
+          </svg>
+        </div>
+        
+        {/* Attack Attempts - Red Threat Arrows */}
+        <div className="absolute inset-0 opacity-20">
+          <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            {/* Attack arrows from outside */}
+            <g>
+              <line x1="0" y1="15" x2="100" y2="15" stroke="#ef4444" strokeWidth="2" opacity="0.5" markerEnd="url(#arrowhead-red)">
+                <animate attributeName="x2" values="100;150;100" dur="3s" repeatCount="indefinite"/>
+              </line>
+              <line x1="0" y1="35" x2="120" y2="35" stroke="#f87171" strokeWidth="1.5" opacity="0.4" markerEnd="url(#arrowhead-red)">
+                <animate attributeName="x2" values="120;170;120" dur="3.5s" repeatCount="indefinite"/>
+              </line>
+              <line x1="800" y1="20" x2="700" y2="20" stroke="#ef4444" strokeWidth="2" opacity="0.5" markerEnd="url(#arrowhead-red-left)">
+                <animate attributeName="x2" values="700;650;700" dur="2.8s" repeatCount="indefinite"/>
+              </line>
+              <line x1="800" y1="40" x2="680" y2="40" stroke="#f87171" strokeWidth="1.5" opacity="0.4" markerEnd="url(#arrowhead-red-left)">
+                <animate attributeName="x2" values="680;630;680" dur="3.2s" repeatCount="indefinite"/>
+              </line>
+            </g>
+            <defs>
+              <marker id="arrowhead-red" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                <polygon points="0 0, 10 3, 0 6" fill="#ef4444" opacity="0.6"/>
+              </marker>
+              <marker id="arrowhead-red-left" markerWidth="10" markerHeight="10" refX="1" refY="3" orient="auto">
+                <polygon points="10 0, 0 3, 10 6" fill="#ef4444" opacity="0.6"/>
+              </marker>
+            </defs>
+          </svg>
+        </div>
+        
+        {/* Defense Shields - Blocking Attacks */}
+        <div className="absolute inset-0 opacity-25">
+          <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            {/* Protective shields blocking attacks */}
+            <g transform="translate(20%, 50%)">
+              <path d="M0,0 L15,-8 L15,8 Z" fill="#10b981" opacity="0.6" stroke="#10b981" strokeWidth="1"/>
+              <circle cx="0" cy="0" r="12" fill="none" stroke="#10b981" strokeWidth="2" opacity="0.4">
+                <animate attributeName="r" values="12;18;12" dur="2s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0.4;0.2;0.4" dur="2s" repeatCount="indefinite"/>
+              </circle>
+            </g>
+            <g transform="translate(80%, 50%)">
+              <path d="M0,0 L15,-8 L15,8 Z" fill="#10b981" opacity="0.6" stroke="#10b981" strokeWidth="1"/>
+              <circle cx="0" cy="0" r="12" fill="none" stroke="#10b981" strokeWidth="2" opacity="0.4">
+                <animate attributeName="r" values="12;18;12" dur="2.3s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0.4;0.2;0.4" dur="2.3s" repeatCount="indefinite"/>
+              </circle>
+            </g>
+            <g transform="translate(50%, 25%)">
+              <path d="M0,0 L15,-8 L15,8 Z" fill="#22c55e" opacity="0.6" stroke="#22c55e" strokeWidth="1"/>
+              <circle cx="0" cy="0" r="10" fill="none" stroke="#22c55e" strokeWidth="2" opacity="0.4">
+                <animate attributeName="r" values="10;16;10" dur="1.8s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0.4;0.2;0.4" dur="1.8s" repeatCount="indefinite"/>
+              </circle>
+            </g>
+          </svg>
+        </div>
+        
+        {/* Intrusion Prevention System (IPS) */}
+        <div className="absolute inset-0 opacity-15">
+          <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            {/* Blocked attack indicators */}
+            <g transform="translate(25%, 20%)">
+              <rect x="-3" y="-3" width="6" height="6" fill="#ef4444" opacity="0.5" rx="1">
+                <animate attributeName="opacity" values="0.5;1;0.5" dur="1.5s" repeatCount="indefinite"/>
+              </rect>
+              <line x1="-8" y1="0" x2="-3" y2="0" stroke="#ef4444" strokeWidth="1.5" opacity="0.4" strokeDasharray="2,2"/>
+              <line x1="3" y1="0" x2="8" y2="0" stroke="#10b981" strokeWidth="1.5" opacity="0.5"/>
+              <text x="10" y="4" fontSize="8" fill="#10b981" opacity="0.6" fontFamily="monospace">BLOCKED</text>
+            </g>
+            <g transform="translate(75%, 20%)">
+              <rect x="-3" y="-3" width="6" height="6" fill="#ef4444" opacity="0.5" rx="1">
+                <animate attributeName="opacity" values="0.5;1;0.5" dur="1.8s" repeatCount="indefinite"/>
+              </rect>
+              <line x1="3" y1="0" x2="-3" y2="0" stroke="#ef4444" strokeWidth="1.5" opacity="0.4" strokeDasharray="2,2"/>
+              <line x1="-3" y1="0" x2="-8" y2="0" stroke="#10b981" strokeWidth="1.5" opacity="0.5"/>
+              <text x="-50" y="4" fontSize="8" fill="#10b981" opacity="0.6" fontFamily="monospace">BLOCKED</text>
+            </g>
+          </svg>
+        </div>
+        
+        {/* Threat Neutralization */}
+        <div className="absolute inset-0 opacity-18">
+          <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            {/* Threat being neutralized */}
+            <g transform="translate(30%, 60%)">
+              <circle cx="0" cy="0" r="4" fill="#ef4444" opacity="0.6">
+                <animate attributeName="opacity" values="0.6;0.2;0.6" dur="2s" repeatCount="indefinite"/>
+              </circle>
+              <circle cx="0" cy="0" r="8" fill="none" stroke="#10b981" strokeWidth="1.5" opacity="0.5">
+                <animate attributeName="r" values="8;12;8" dur="2s" repeatCount="indefinite"/>
+              </circle>
+              <line x1="-6" y1="-6" x2="6" y2="6" stroke="#10b981" strokeWidth="1.5" opacity="0.6"/>
+              <line x1="6" y1="-6" x2="-6" y2="6" stroke="#10b981" strokeWidth="1.5" opacity="0.6"/>
+            </g>
+            <g transform="translate(70%, 60%)">
+              <circle cx="0" cy="0" r="4" fill="#f87171" opacity="0.6">
+                <animate attributeName="opacity" values="0.6;0.2;0.6" dur="2.3s" repeatCount="indefinite"/>
+              </circle>
+              <circle cx="0" cy="0" r="8" fill="none" stroke="#22c55e" strokeWidth="1.5" opacity="0.5">
+                <animate attributeName="r" values="8;12;8" dur="2.3s" repeatCount="indefinite"/>
+              </circle>
+              <line x1="-6" y1="-6" x2="6" y2="6" stroke="#22c55e" strokeWidth="1.5" opacity="0.6"/>
+              <line x1="6" y1="-6" x2="-6" y2="6" stroke="#22c55e" strokeWidth="1.5" opacity="0.6"/>
+            </g>
+          </svg>
+        </div>
+        
+        {/* Active Defense Status */}
+        <div className="absolute top-1 right-4 opacity-30">
+          <div className="flex items-center gap-1">
+            <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></div>
+            <span className="text-[8px] text-green-400 font-mono">DEFENSE ACTIVE</span>
+          </div>
+        </div>
+        
+        {/* Central Security Hub - Middle of Banner */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-30 pointer-events-none z-20">
+          <svg width="120" height="60" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 60">
+            <g transform="translate(60, 30)">
+              {/* Main security core */}
+              <circle cx="0" cy="0" r="8" fill="#06b6d4" opacity="0.7">
+                <animate attributeName="opacity" values="0.7;1;0.7" dur="2s" repeatCount="indefinite"/>
+              </circle>
+              <circle cx="0" cy="0" r="15" fill="none" stroke="#06b6d4" strokeWidth="2" opacity="0.6">
+                <animate attributeName="r" values="15;20;15" dur="3s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0.6;0.4;0.6" dur="3s" repeatCount="indefinite"/>
+              </circle>
+              <circle cx="0" cy="0" r="25" fill="none" stroke="#3b82f6" strokeWidth="1.5" opacity="0.5" strokeDasharray="4,4">
+                <animateTransform attributeName="transform" type="rotate" values="0;360" dur="20s" repeatCount="indefinite"/>
+              </circle>
+              
+              {/* Protection rings */}
+              <circle cx="0" cy="0" r="30" fill="none" stroke="#10b981" strokeWidth="1" opacity="0.4" strokeDasharray="2,2">
+                <animate attributeName="r" values="30;35;30" dur="4s" repeatCount="indefinite"/>
+              </circle>
+              
+              {/* Security rays */}
+              <line x1="0" y1="0" x2="0" y2="-30" stroke="#06b6d4" strokeWidth="1.5" opacity="0.6">
+                <animate attributeName="opacity" values="0.6;0.9;0.6" dur="2s" repeatCount="indefinite"/>
+              </line>
+              <line x1="0" y1="0" x2="30" y2="0" stroke="#06b6d4" strokeWidth="1.5" opacity="0.6">
+                <animate attributeName="opacity" values="0.6;0.9;0.6" dur="2s" repeatCount="indefinite" begin="0.5s"/>
+              </line>
+              <line x1="0" y1="0" x2="0" y2="30" stroke="#06b6d4" strokeWidth="1.5" opacity="0.6">
+                <animate attributeName="opacity" values="0.6;0.9;0.6" dur="2s" repeatCount="indefinite" begin="1s"/>
+              </line>
+              <line x1="0" y1="0" x2="-30" y2="0" stroke="#06b6d4" strokeWidth="1.5" opacity="0.6">
+                <animate attributeName="opacity" values="0.6;0.9;0.6" dur="2s" repeatCount="indefinite" begin="1.5s"/>
+              </line>
+              
+              {/* Diagonal protection lines */}
+              <line x1="0" y1="0" x2="21" y2="-21" stroke="#3b82f6" strokeWidth="1" opacity="0.5">
+                <animate attributeName="opacity" values="0.5;0.8;0.5" dur="2.5s" repeatCount="indefinite"/>
+              </line>
+              <line x1="0" y1="0" x2="21" y2="21" stroke="#3b82f6" strokeWidth="1" opacity="0.5">
+                <animate attributeName="opacity" values="0.5;0.8;0.5" dur="2.5s" repeatCount="indefinite" begin="0.6s"/>
+              </line>
+              <line x1="0" y1="0" x2="-21" y2="21" stroke="#3b82f6" strokeWidth="1" opacity="0.5">
+                <animate attributeName="opacity" values="0.5;0.8;0.5" dur="2.5s" repeatCount="indefinite" begin="1.2s"/>
+              </line>
+              <line x1="0" y1="0" x2="-21" y2="-21" stroke="#3b82f6" strokeWidth="1" opacity="0.5">
+                <animate attributeName="opacity" values="0.5;0.8;0.5" dur="2.5s" repeatCount="indefinite" begin="1.8s"/>
+              </line>
+            </g>
+          </svg>
+        </div>
+        
+        <div className="relative z-10 max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3 animate-on-load">
-            <div className="p-2 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-lg shadow-lg">
-              <Shield className="w-6 h-6 text-white" />
+            <div className="w-14 h-14 bg-gradient-to-br from-blue-500 via-blue-600 to-cyan-600 rounded-lg shadow-lg flex items-center justify-center">
+              <ShieldCheck className="w-8 h-8 text-white stroke-2" />
             </div>
             <div className="text-right">
-              <h1 className="text-lg font-bold text-white leading-tight">الادارة العامة للامن السبراني</h1>
-              <p className="text-xs text-slate-300 leading-tight">ادارة عمليات الامن السبراني</p>
+              <h1 className="text-xl font-bold text-white leading-tight">الإدارة العامة للأمن السيبراني</h1>
+              <h1 className="text-xl font-bold text-white leading-tight mt-0.5">إدارة عمليات الأمن السيبراني</h1>
             </div>
           </div>
           <div className="flex items-center gap-4 animate-on-load">
@@ -145,7 +618,7 @@ export default function LandingPage() {
             <div className="grid grid-cols-2 gap-2 pt-2">
               <div className="group bg-white/10 backdrop-blur-md rounded-lg p-3 border border-white/20 shadow-lg hover:shadow-xl hover:bg-white/20 transition-all duration-300 hover:-translate-y-1 animate-fade-in-delay-1">
                 <div className="p-1.5 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-lg w-fit mb-2 group-hover:scale-110 transition-transform shadow-lg">
-                  <Shield className="w-4 h-4 text-white" />
+                  <ShieldCheck className="w-4 h-4 text-white" />
                 </div>
                 <h3 className="font-bold text-sm mb-0.5 text-white">Secure</h3>
                 <p className="text-[10px] text-slate-300 leading-tight">Enterprise security</p>

@@ -203,6 +203,14 @@ class ApiService {
     });
   }
 
+  // Email
+  async sendFollowUpEmails(engineerIds?: number[]) {
+    return this.request<{ message: string; results: Array<{ engineer: string; email: string; success: boolean; pendingCount: number; inProgressCount: number }> }>('/email/follow-up', {
+      method: 'POST',
+      body: JSON.stringify({ engineerIds }),
+    });
+  }
+
   // Import
   async previewImport(file: File) {
     const formData = new FormData();

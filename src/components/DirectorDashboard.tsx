@@ -14,7 +14,7 @@ import Chatbot from './Chatbot';
 import GroupedTasksByEngineer from './GroupedTasksByEngineer';
 import GroupedTasksByService from './GroupedTasksByService';
 import GroupedTasksByStatus from './GroupedTasksByStatus';
-import { Plus, Download, LogOut, Bell, Search, CheckCircle, Clock, Circle, FileText, UserPlus, Upload, Layers, ChevronDown, Menu, X, User, RefreshCw, Bot } from 'lucide-react';
+import { Plus, Download, LogOut, Bell, Search, CheckCircle, Clock, Circle, FileText, UserPlus, Upload, Layers, ChevronDown, Menu, X, User, RefreshCw, Bot, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 
@@ -50,6 +50,8 @@ export default function DirectorDashboard() {
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'in-progress'>('all');
+  const [isSendingEmails, setIsSendingEmails] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -82,7 +84,7 @@ export default function DirectorDashboard() {
 
   // Cache key for storing data
   const CACHE_KEY = 'director_dashboard_data';
-  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+  const CACHE_DURATION = 1 * 60 * 1000; // 1 minute (reduced from 5 minutes for better updates)
 
   const loadData = async (forceReload: boolean = false) => {
     // Check cache first
@@ -283,10 +285,18 @@ export default function DirectorDashboard() {
     setExpandedMonths(newExpanded);
   };
 
-  // Filter tasks
+  // Filter tasks based on active tab
   let filteredTasks = tasks;
 
-  if (statusFilter !== 'all') {
+  // Apply tab filter first
+  if (activeTab === 'pending') {
+    filteredTasks = filteredTasks.filter(t => t.status === 'pending');
+  } else if (activeTab === 'in-progress') {
+    filteredTasks = filteredTasks.filter(t => t.status === 'in-progress');
+  }
+
+  // Then apply other filters
+  if (statusFilter !== 'all' && activeTab === 'all') {
     filteredTasks = filteredTasks.filter(t => t.status === statusFilter);
   }
 
@@ -455,6 +465,23 @@ export default function DirectorDashboard() {
   const uniqueMonths = Array.from(new Set(tasks.map(t => t.month))).sort();
   const uniqueYears = Array.from(new Set(tasks.map(t => t.year))).sort((a, b) => b - a);
   const uniqueServices = Array.from(new Set(tasks.map(t => t.service))).sort();
+
+  const handleSendFollowUpEmails = async () => {
+    if (!confirm('Are you sure you want to send follow-up emails to all engineers with pending or in-progress tasks?')) {
+      return;
+    }
+
+    setIsSendingEmails(true);
+    try {
+      const result = await api.sendFollowUpEmails();
+      alert(`Success! ${result.message}\n\nSent to ${result.results.length} engineer(s):\n${result.results.map(r => `- ${r.engineer} (${r.email}): ${r.pendingCount} pending, ${r.inProgressCount} in-progress`).join('\n')}`);
+    } catch (error: any) {
+      console.error('Error sending follow-up emails:', error);
+      alert(`Failed to send follow-up emails: ${error.message || 'Unknown error'}`);
+    } finally {
+      setIsSendingEmails(false);
+    }
+  };
 
   const exportToPDF = () => {
     // Create a printable report
@@ -1402,49 +1429,133 @@ export default function DirectorDashboard() {
           </div>
         </div>
 
-        {/* Tasks List */}
+        {/* Tasks List with Tabs */}
         <div className="bg-white rounded-lg shadow-lg border border-gray-200">
-          <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-gray-900">
-              Tasks ({filteredTasks.length})
-            </h2>
-            <div className="flex items-center gap-3">
-              <label className="text-sm font-medium text-gray-700">Group by:</label>
-              <select
-                value={groupBy}
-                onChange={(e) => setGroupBy(e.target.value as 'none' | 'engineer' | 'service' | 'status')}
-                className="px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
-              >
-                <option value="none">None</option>
-                <option value="engineer">Engineer</option>
-                <option value="service">Service</option>
-                <option value="status">Status</option>
-              </select>
+          {/* Tabs Navigation */}
+          <div className="border-b border-gray-200 bg-gray-50">
+            <div className="flex items-center justify-between px-4 pt-4">
+              <div className="flex space-x-1" role="tablist">
+                <button
+                  onClick={() => {
+                    setActiveTab('all');
+                    setStatusFilter('all');
+                  }}
+                  className={`px-6 py-3 text-sm font-medium rounded-t-lg transition-colors ${
+                    activeTab === 'all'
+                      ? 'bg-white text-main border-b-2 border-main'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  }`}
+                  role="tab"
+                  aria-selected={activeTab === 'all'}
+                >
+                  All Tasks ({tasks.length})
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab('pending');
+                    setStatusFilter('all');
+                  }}
+                  className={`px-6 py-3 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${
+                    activeTab === 'pending'
+                      ? 'bg-white text-orange-600 border-b-2 border-orange-600'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  }`}
+                  role="tab"
+                  aria-selected={activeTab === 'pending'}
+                >
+                  <Circle className="text-orange-600" size={16} />
+                  Pending Follow-up ({tasks.filter(t => t.status === 'pending').length})
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab('in-progress');
+                    setStatusFilter('all');
+                  }}
+                  className={`px-6 py-3 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${
+                    activeTab === 'in-progress'
+                      ? 'bg-white text-blue-600 border-b-2 border-blue-600'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  }`}
+                  role="tab"
+                  aria-selected={activeTab === 'in-progress'}
+                >
+                  <Clock className="text-blue-600" size={16} />
+                  In Progress Follow-up ({tasks.filter(t => t.status === 'in-progress').length})
+                </button>
+              </div>
+              <div className="flex items-center gap-3">
+                {activeTab === 'all' && (
+                  <>
+                    <label className="text-sm font-medium text-gray-700">Group by:</label>
+                    <select
+                      value={groupBy}
+                      onChange={(e) => setGroupBy(e.target.value as 'none' | 'engineer' | 'service' | 'status')}
+                      className="px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
+                    >
+                      <option value="none">None</option>
+                      <option value="engineer">Engineer</option>
+                      <option value="service">Service</option>
+                      <option value="status">Status</option>
+                    </select>
+                  </>
+                )}
+              </div>
             </div>
           </div>
-          {filteredTasks.length === 0 ? (
-            <div className="p-12 text-center">
-              <Circle className="mx-auto text-gray-400 mb-4" size={48} />
-              <p className="text-gray-600 text-lg">No tasks found</p>
-              <p className="text-gray-500 text-sm mt-2">Try adjusting your filters or add a new task</p>
-            </div>
-          ) : (
-            <div className="max-h-[600px] overflow-y-auto">
-              {groupBy === 'none' ? (
-                <div className="divide-y divide-gray-200">
-                  {filteredTasks.map((task) => (
-                    <TaskItem key={task.id} task={task} engineers={engineers} onEdit={handleEditTask} onDelete={handleDeleteTask} getStatusIcon={getStatusIcon} getStatusColor={getStatusColor} getPriorityColor={getPriorityColor} />
-                  ))}
-                </div>
-              ) : groupBy === 'engineer' ? (
-                <GroupedTasksByEngineer tasks={filteredTasks} engineers={engineers} onEdit={handleEditTask} onDelete={handleDeleteTask} getStatusIcon={getStatusIcon} getStatusColor={getStatusColor} getPriorityColor={getPriorityColor} />
-              ) : groupBy === 'service' ? (
-                <GroupedTasksByService tasks={filteredTasks} engineers={engineers} onEdit={handleEditTask} onDelete={handleDeleteTask} getStatusIcon={getStatusIcon} getStatusColor={getStatusColor} getPriorityColor={getPriorityColor} />
-              ) : (
-                <GroupedTasksByStatus tasks={filteredTasks} engineers={engineers} onEdit={handleEditTask} onDelete={handleDeleteTask} getStatusIcon={getStatusIcon} getStatusColor={getStatusColor} getPriorityColor={getPriorityColor} />
+
+          {/* Tab Content */}
+          <div className="p-4">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {activeTab === 'all' && `All Tasks (${filteredTasks.length})`}
+                {activeTab === 'pending' && `Pending Tasks Follow-up (${filteredTasks.length})`}
+                {activeTab === 'in-progress' && `In Progress Tasks Follow-up (${filteredTasks.length})`}
+              </h2>
+              {(activeTab === 'pending' || activeTab === 'in-progress') && (
+                <button
+                  onClick={handleSendFollowUpEmails}
+                  disabled={isSendingEmails || filteredTasks.length === 0}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors shadow-md"
+                >
+                  <Mail size={18} />
+                  {isSendingEmails ? 'Sending...' : 'Send Follow-up Emails'}
+                </button>
               )}
             </div>
-          )}
+            {filteredTasks.length === 0 ? (
+              <div className="p-12 text-center">
+                <Circle className="mx-auto text-gray-400 mb-4" size={48} />
+                <p className="text-gray-600 text-lg">No tasks found</p>
+                <p className="text-gray-500 text-sm mt-2">
+                  {activeTab === 'pending' && 'No pending tasks to follow up'}
+                  {activeTab === 'in-progress' && 'No in-progress tasks to follow up'}
+                  {activeTab === 'all' && 'Try adjusting your filters or add a new task'}
+                </p>
+              </div>
+            ) : (
+              <div className="max-h-[600px] overflow-y-auto">
+                {activeTab === 'all' ? (
+                  // All tasks tab - use existing grouping logic
+                  groupBy === 'none' ? (
+                    <div className="divide-y divide-gray-200">
+                      {filteredTasks.map((task) => (
+                        <TaskItem key={task.id} task={task} engineers={engineers} onEdit={handleEditTask} onDelete={handleDeleteTask} getStatusIcon={getStatusIcon} getStatusColor={getStatusColor} getPriorityColor={getPriorityColor} />
+                      ))}
+                    </div>
+                  ) : groupBy === 'engineer' ? (
+                    <GroupedTasksByEngineer tasks={filteredTasks} engineers={engineers} onEdit={handleEditTask} onDelete={handleDeleteTask} getStatusIcon={getStatusIcon} getStatusColor={getStatusColor} getPriorityColor={getPriorityColor} />
+                  ) : groupBy === 'service' ? (
+                    <GroupedTasksByService tasks={filteredTasks} engineers={engineers} onEdit={handleEditTask} onDelete={handleDeleteTask} getStatusIcon={getStatusIcon} getStatusColor={getStatusColor} getPriorityColor={getPriorityColor} />
+                  ) : (
+                    <GroupedTasksByStatus tasks={filteredTasks} engineers={engineers} onEdit={handleEditTask} onDelete={handleDeleteTask} getStatusIcon={getStatusIcon} getStatusColor={getStatusColor} getPriorityColor={getPriorityColor} />
+                  )
+                ) : (
+                  // Pending and In-Progress tabs - always grouped by engineer
+                  <GroupedTasksByEngineer tasks={filteredTasks} engineers={engineers} onEdit={handleEditTask} onDelete={handleDeleteTask} getStatusIcon={getStatusIcon} getStatusColor={getStatusColor} getPriorityColor={getPriorityColor} />
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

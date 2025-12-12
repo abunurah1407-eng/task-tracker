@@ -213,6 +213,7 @@ export default function EngineersManagement() {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16">#</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Color</th>
@@ -223,10 +224,13 @@ export default function EngineersManagement() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {engineers.map((engineer) => {
+                  {engineers.map((engineer, index) => {
                     const invitationLink = getInvitationLink(engineer);
                     return (
                       <tr key={engineer.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-4 whitespace-nowrap text-center">
+                          <span className="text-sm font-semibold text-gray-700">{index + 1}</span>
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div
