@@ -24,6 +24,7 @@ const defaultEngineers = [
   { name: 'Menwer', color: '#14b8a6' },
   { name: 'A. Driwesh', color: '#a855f7' },
   { name: 'Aryam', color: '#eab308' },
+  { name: 'Nasser', color: '#dc2626' },
 ];
 
 const defaultServices = [
@@ -117,7 +118,7 @@ async function seed() {
     
     const defaultUsers = [
       { email: 'admin@etec.com', name: 'Admin User', role: 'admin', passwordHash },
-      { email: 'director@etec.com', name: 'Director User', role: 'director', passwordHash },
+      { email: 'director@etec.com', name: 'Nasser', role: 'director', passwordHash },
       { email: 'faisal@etec.com', name: 'Faisal', role: 'engineer', engineerName: 'Faisal', passwordHash },
       { email: 'abeer@etec.com', name: 'Abeer', role: 'engineer', engineerName: 'Abeer', passwordHash },
     ];

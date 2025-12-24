@@ -411,6 +411,13 @@ export default function DirectorDashboard() {
     };
   });
 
+  // Calculate max value for engineer chart (sum of all statuses per engineer)
+  const engineerMaxValue = Math.max(...engineerChartData.map(eng => eng.pending + eng.inProgress + eng.completed), 0);
+  const engineerYAxisTicks = [];
+  for (let i = 0; i <= Math.ceil(engineerMaxValue / 200) * 200; i += 200) {
+    engineerYAxisTicks.push(i);
+  }
+
   const statusPieData = [
     { name: 'Pending', value: pendingTasks, color: '#9ca3af' },
     { name: 'In Progress', value: inProgressTasks, color: '#3b82f6' },
@@ -433,20 +440,55 @@ export default function DirectorDashboard() {
     .sort((a, b) => b.count - a.count)
     .slice(0, 10); // Top 10 services
 
-  // Monthly distribution (from filtered tasks for trend)
-  const monthlyData = filteredTasks.reduce((acc, task) => {
+  // Monthly distribution (from filtered tasks for trend) - Only show current year
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  
+  // Filter tasks for current year only
+  const currentYearTasks = filteredTasks.filter(t => t.year === currentYear);
+  
+  // Create data for all months in current year
+  const monthlyData = currentYearTasks.reduce((acc, task) => {
     const key = `${task.month} ${task.year}`;
     if (!acc[key]) {
-      acc[key] = { month: key, tasks: 0, completed: 0 };
+      acc[key] = { month: task.month, year: task.year, monthKey: key, tasks: 0, completed: 0 };
     }
     acc[key].tasks += 1;
     if (task.status === 'completed') {
       acc[key].completed += 1;
     }
     return acc;
-  }, {} as Record<string, { month: string; tasks: number; completed: number }>);
+  }, {} as Record<string, { month: string; year: number; monthKey: string; tasks: number; completed: number }>);
+  
+  // Generate all 12 months for current year, including months with 0 tasks
+  const allMonthsData: { month: string; year: number; monthKey: string; tasks: number; completed: number }[] = [];
+  monthNames.forEach(month => {
+    const key = `${month} ${currentYear}`;
+    if (monthlyData[key]) {
+      allMonthsData.push(monthlyData[key]);
+    } else {
+      // Include month even if no tasks
+      allMonthsData.push({ month, year: currentYear, monthKey: key, tasks: 0, completed: 0 });
+    }
+  });
+  
+  // Sort by month order
+  const monthlyChartData = allMonthsData.sort((a, b) => {
+    return monthNames.indexOf(a.month) - monthNames.indexOf(b.month);
+  }).map(item => ({
+    month: item.monthKey,
+    tasks: item.tasks,
+    completed: item.completed
+  }));
 
-  const monthlyChartData = Object.values(monthlyData).slice(-6); // Last 6 months
+  // Calculate max value for monthly chart (max of tasks or completed)
+  const monthlyMaxValue = Math.max(
+    ...monthlyChartData.map(item => Math.max(item.tasks, item.completed)),
+    0
+  );
+  const monthlyYAxisTicks = [];
+  for (let i = 0; i <= Math.ceil(monthlyMaxValue / 200) * 200; i += 200) {
+    monthlyYAxisTicks.push(i);
+  }
 
   // Engineer performance (completion rate) - from filtered tasks
   const engineerPerformance = engineers.map(eng => {
@@ -494,18 +536,38 @@ export default function DirectorDashboard() {
         <head>
           <title>Task Tracker Report</title>
           <style>
-            body { font-family: Arial, sans-serif; padding: 20px; }
-            h1 { color: #1f2937; }
-            .header { margin-bottom: 30px; }
-            .filters { background: #f3f4f6; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+            body { font-family: Arial, sans-serif; padding: 20px; background: #f9fafb; }
+            h1 { color: #1f2937; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+            .header { margin-bottom: 30px; padding-bottom: 15px; border-bottom: 3px solid #3b82f6; }
+            .filters { background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #818cf8; }
             .filters p { margin: 5px 0; }
             table { width: 100%; border-collapse: collapse; margin-top: 20px; }
             th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; }
-            th { background: #3b82f6; color: white; }
+            th { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; font-weight: bold; }
             .stats { display: flex; gap: 20px; margin-bottom: 20px; }
-            .stat-box { background: #f9fafb; padding: 15px; border-radius: 8px; flex: 1; }
-            .stat-label { font-size: 12px; color: #6b7280; }
-            .stat-value { font-size: 24px; font-weight: bold; color: #1f2937; }
+            .stat-box { padding: 15px; border-radius: 8px; flex: 1; border: 2px solid; }
+            .stat-box.total { background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-color: #0ea5e9; }
+            .stat-box.pending { background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); border-color: #f59e0b; }
+            .stat-box.in-progress { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-color: #3b82f6; }
+            .stat-box.completed { background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-color: #10b981; }
+            .stat-label { font-size: 12px; font-weight: 600; margin-bottom: 5px; }
+            .stat-box.total .stat-label { color: #0369a1; }
+            .stat-box.pending .stat-label { color: #d97706; }
+            .stat-box.in-progress .stat-label { color: #2563eb; }
+            .stat-box.completed .stat-label { color: #059669; }
+            .stat-value { font-size: 24px; font-weight: bold; }
+            .stat-box.total .stat-value { color: #0c4a6e; }
+            .stat-box.pending .stat-value { color: #b45309; }
+            .stat-box.in-progress .stat-value { color: #1e40af; }
+            .stat-box.completed .stat-value { color: #047857; }
+            .status-pending { background: #fef3c7; color: #92400e; font-weight: bold; padding: 4px 8px; border-radius: 4px; }
+            .status-in-progress { background: #dbeafe; color: #1e40af; font-weight: bold; padding: 4px 8px; border-radius: 4px; }
+            .status-completed { background: #d1fae5; color: #065f46; font-weight: bold; padding: 4px 8px; border-radius: 4px; }
+            .priority-high { background: #fee2e2; color: #991b1b; font-weight: bold; padding: 4px 8px; border-radius: 4px; }
+            .priority-medium { background: #fef3c7; color: #92400e; font-weight: bold; padding: 4px 8px; border-radius: 4px; }
+            .priority-low { background: #f3f4f6; color: #374151; font-weight: bold; padding: 4px 8px; border-radius: 4px; }
+            tr:nth-child(even) { background: #f9fafb; }
+            tr:hover { background: #f3f4f6; }
           </style>
         </head>
         <body>
@@ -528,19 +590,19 @@ export default function DirectorDashboard() {
           </div>
 
           <div class="stats">
-            <div class="stat-box">
+            <div class="stat-box total">
               <div class="stat-label">Total Tasks</div>
               <div class="stat-value">${totalTasks}</div>
             </div>
-            <div class="stat-box">
+            <div class="stat-box pending">
               <div class="stat-label">Pending</div>
               <div class="stat-value">${pendingTasks}</div>
             </div>
-            <div class="stat-box">
+            <div class="stat-box in-progress">
               <div class="stat-label">In Progress</div>
               <div class="stat-value">${inProgressTasks}</div>
             </div>
-            <div class="stat-box">
+            <div class="stat-box completed">
               <div class="stat-label">Completed</div>
               <div class="stat-value">${completedTasks}</div>
             </div>
@@ -561,18 +623,26 @@ export default function DirectorDashboard() {
               </tr>
             </thead>
             <tbody>
-              ${filteredTasks.map(task => `
+              ${filteredTasks.map(task => {
+                const statusClass = task.status === 'pending' ? 'status-pending' : 
+                                  task.status === 'in-progress' ? 'status-in-progress' : 
+                                  'status-completed';
+                const priorityClass = task.priority === 'high' ? 'priority-high' : 
+                                     task.priority === 'medium' ? 'priority-medium' : 
+                                     'priority-low';
+                return `
                 <tr>
                   <td>${task.service}</td>
                   <td>${task.engineer}</td>
                   <td>${task.week}</td>
                   <td>${task.month}</td>
                   <td>${task.year}</td>
-                  <td>${task.status}</td>
-                  <td>${task.priority}</td>
+                  <td><span class="${statusClass}">${task.status}</span></td>
+                  <td><span class="${priorityClass}">${task.priority}</span></td>
                   <td>${task.description || ''}</td>
                 </tr>
-              `).join('')}
+              `;
+              }).join('')}
             </tbody>
           </table>
         </body>
@@ -1026,24 +1096,36 @@ export default function DirectorDashboard() {
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-sm opacity-90 mb-1">Total Tasks This Year</div>
-                <div className="text-4xl font-bold">{yearTotal}</div>
+                <div className="text-sm opacity-90 mb-1 flex items-center justify-end gap-2">
+                  <div className="w-3 h-3 rounded-full bg-white/60 animate-pulse"></div>
+                  Total Tasks This Year
+                </div>
+                <div className="text-4xl font-bold bg-gradient-to-r from-white to-yellow-200 bg-clip-text text-transparent">{yearTotal}</div>
                 </div>
                 </div>
             
-            {/* Year Stats */}
+            {/* Year Stats - Color Coded */}
             <div className="grid grid-cols-3 gap-4 mb-6">
-              <div className="bg-white bg-opacity-20 rounded-lg p-4 backdrop-blur-sm">
-                <div className="text-sm opacity-90 mb-1">Pending</div>
-                <div className="text-2xl font-bold">{yearPending}</div>
+              <div className="bg-gradient-to-br from-orange-500/30 to-orange-600/20 border-2 border-orange-400/50 rounded-lg p-4 backdrop-blur-sm shadow-lg">
+                <div className="text-sm opacity-90 mb-1 flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-orange-400"></div>
+                  Pending
+                </div>
+                <div className="text-2xl font-bold text-orange-100">{yearPending}</div>
               </div>
-              <div className="bg-white bg-opacity-20 rounded-lg p-4 backdrop-blur-sm">
-                <div className="text-sm opacity-90 mb-1">In Progress</div>
-                <div className="text-2xl font-bold">{yearInProgress}</div>
+              <div className="bg-gradient-to-br from-blue-500/30 to-blue-600/20 border-2 border-blue-400/50 rounded-lg p-4 backdrop-blur-sm shadow-lg">
+                <div className="text-sm opacity-90 mb-1 flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-blue-400"></div>
+                  In Progress
+                </div>
+                <div className="text-2xl font-bold text-blue-100">{yearInProgress}</div>
               </div>
-              <div className="bg-white bg-opacity-20 rounded-lg p-4 backdrop-blur-sm">
-                <div className="text-sm opacity-90 mb-1">Completed</div>
-                <div className="text-2xl font-bold">{yearCompleted}</div>
+              <div className="bg-gradient-to-br from-green-500/30 to-green-600/20 border-2 border-green-400/50 rounded-lg p-4 backdrop-blur-sm shadow-lg">
+                <div className="text-sm opacity-90 mb-1 flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-green-400"></div>
+                  Completed
+                </div>
+                <div className="text-2xl font-bold text-green-100">{yearCompleted}</div>
               </div>
             </div>
             
@@ -1060,8 +1142,10 @@ export default function DirectorDashboard() {
                   return (
                     <div 
                       key={monthStat.month}
-                      className={`bg-white bg-opacity-20 rounded-lg p-4 backdrop-blur-sm border-2 ${
-                        isCurrentMonth ? 'border-yellow-300 border-opacity-80' : 'border-transparent'
+                      className={`bg-gradient-to-r from-white/25 to-white/15 rounded-lg p-4 backdrop-blur-sm border-2 shadow-lg ${
+                        isCurrentMonth 
+                          ? 'border-yellow-300 border-opacity-80 shadow-yellow-500/20' 
+                          : 'border-white/30'
                       }`}
                     >
                       <div 
@@ -1075,11 +1159,23 @@ export default function DirectorDashboard() {
                               <span className="ml-2 text-xs text-yellow-300">(Current)</span>
                             )}
                           </div>
-                          <div className="text-xs opacity-75">
-                            Total: {monthStat.total} | 
-                            Pending: {monthStat.pending} | 
-                            In Progress: {monthStat.inProgress} | 
-                            Completed: {monthStat.completed}
+                          <div className="text-xs opacity-75 flex items-center gap-2 flex-wrap">
+                            <span className="flex items-center gap-1">
+                              <span className="w-2 h-2 rounded-full bg-white/60"></span>
+                              Total: <span className="font-semibold">{monthStat.total}</span>
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <span className="w-2 h-2 rounded-full bg-orange-400"></span>
+                              Pending: <span className="font-semibold text-orange-200">{monthStat.pending}</span>
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <span className="w-2 h-2 rounded-full bg-blue-400"></span>
+                              In Progress: <span className="font-semibold text-blue-200">{monthStat.inProgress}</span>
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <span className="w-2 h-2 rounded-full bg-green-400"></span>
+                              Completed: <span className="font-semibold text-green-200">{monthStat.completed}</span>
+                            </span>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -1098,10 +1194,10 @@ export default function DirectorDashboard() {
                 {weeklyBreakdown.map((weekData) => (
                   <div 
                     key={weekData.week} 
-                                className={`bg-white bg-opacity-10 rounded-lg p-3 backdrop-blur-sm border ${
+                                className={`bg-gradient-to-br from-white/15 to-white/5 rounded-lg p-3 backdrop-blur-sm border shadow-md ${
                                   weekData.week === currentWeek && isCurrentMonth
-                                    ? 'border-yellow-300 border-opacity-60' 
-                                    : 'border-white border-opacity-10'
+                                    ? 'border-yellow-300 border-opacity-60 shadow-yellow-500/20' 
+                                    : 'border-white/20'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
@@ -1114,17 +1210,26 @@ export default function DirectorDashboard() {
                                   <div className="text-sm font-bold">{weekData.total}</div>
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-xs">
-                      <div>
-                        <div className="opacity-75 mb-0.5">Pending</div>
-                        <div className="font-semibold">{weekData.pending}</div>
+                      <div className="bg-orange-500/20 rounded p-2 border border-orange-400/30">
+                        <div className="opacity-90 mb-0.5 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-orange-400"></span>
+                          Pending
+                        </div>
+                        <div className="font-bold text-orange-200">{weekData.pending}</div>
                       </div>
-                      <div>
-                        <div className="opacity-75 mb-0.5">In Progress</div>
-                        <div className="font-semibold">{weekData.inProgress}</div>
+                      <div className="bg-blue-500/20 rounded p-2 border border-blue-400/30">
+                        <div className="opacity-90 mb-0.5 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                          In Progress
+                        </div>
+                        <div className="font-bold text-blue-200">{weekData.inProgress}</div>
                       </div>
-                      <div>
-                        <div className="opacity-75 mb-0.5">Done</div>
-                        <div className="font-semibold">{weekData.completed}</div>
+                      <div className="bg-green-500/20 rounded p-2 border border-green-400/30">
+                        <div className="opacity-90 mb-0.5 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-green-400"></span>
+                          Done
+                        </div>
+                        <div className="font-bold text-green-200">{weekData.completed}</div>
                       </div>
                     </div>
                   </div>
@@ -1259,11 +1364,11 @@ export default function DirectorDashboard() {
         </div>
 
         {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* Engineer Task Distribution */}
+        <div className="space-y-6 mb-6">
+          {/* Engineer Task Distribution - Full Width */}
           <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Engineer Task Distribution</h2>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={400}>
               <BarChart data={engineerChartData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis 
@@ -1273,159 +1378,233 @@ export default function DirectorDashboard() {
                   height={100}
                   fontSize={12}
                 />
-                <YAxis />
+                <YAxis 
+                  domain={[0, engineerMaxValue > 0 ? Math.ceil(engineerMaxValue / 200) * 200 : 200]}
+                  ticks={engineerYAxisTicks}
+                  tickFormatter={(value) => value.toString()}
+                />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="pending" stackId="a" fill="#9ca3af" />
-                <Bar dataKey="inProgress" stackId="a" fill="#3b82f6" />
-                <Bar dataKey="completed" stackId="a" fill="#10b981" />
+                <Bar dataKey="pending" stackId="a" fill="url(#pendingGradient)" />
+                <Bar dataKey="inProgress" stackId="a" fill="url(#inProgressGradient)" />
+                <Bar dataKey="completed" stackId="a" fill="url(#completedGradient)" />
+                <defs>
+                  <linearGradient id="pendingGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#f59e0b" stopOpacity={1} />
+                    <stop offset="100%" stopColor="#d97706" stopOpacity={1} />
+                  </linearGradient>
+                  <linearGradient id="inProgressGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={1} />
+                    <stop offset="100%" stopColor="#2563eb" stopOpacity={1} />
+                  </linearGradient>
+                  <linearGradient id="completedGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#10b981" stopOpacity={1} />
+                    <stop offset="100%" stopColor="#059669" stopOpacity={1} />
+                  </linearGradient>
+                </defs>
               </BarChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Status Distribution Pie Chart */}
-          <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Task Status Distribution</h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={statusPieData.filter(d => d.value > 0)}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent, value }) => {
-                    // Only show label if value > 0 and percent is significant (> 5%)
-                    if (value === 0 || percent < 0.05) return '';
-                    return `${name}: ${(percent * 100).toFixed(0)}%`;
-                  }}
-                  outerRadius={100}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {statusPieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  formatter={(value: number, name: string) => {
-                    if (value === 0) return null;
-                    return [`${value} (${((value / statusPieData.reduce((sum, d) => sum + d.value, 0)) * 100).toFixed(1)}%)`, name];
-                  }}
-                />
-                <Legend 
-                  wrapperStyle={{ paddingTop: '20px' }}
-                  formatter={(value: string) => {
-                    const dataEntry = statusPieData.find(d => d.name === value);
-                    if (!dataEntry || dataEntry.value === 0) return null;
-                    const total = statusPieData.reduce((sum, d) => sum + d.value, 0);
-                    const percent = total > 0 ? ((dataEntry.value / total) * 100).toFixed(0) : '0';
-                    return `${value}: ${percent}%`;
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Priority Distribution */}
-          <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Priority Distribution</h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={priorityPieData.filter(d => d.value > 0)}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent, value }) => {
-                    // Only show label if value > 0 and percent is significant (> 5%)
-                    if (value === 0 || percent < 0.05) return '';
-                    return `${name}: ${(percent * 100).toFixed(0)}%`;
-                  }}
-                  outerRadius={100}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {priorityPieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  formatter={(value: number, name: string) => {
-                    if (value === 0) return null;
-                    return [`${value} (${((value / priorityPieData.reduce((sum, d) => sum + d.value, 0)) * 100).toFixed(1)}%)`, name];
-                  }}
-                />
-                <Legend 
-                  wrapperStyle={{ paddingTop: '20px' }}
-                  formatter={(value: string) => {
-                    const dataEntry = priorityPieData.find(d => d.name === value);
-                    if (!dataEntry || dataEntry.value === 0) return null;
-                    const total = priorityPieData.reduce((sum, d) => sum + d.value, 0);
-                    const percent = total > 0 ? ((dataEntry.value / total) * 100).toFixed(0) : '0';
-                    return `${value}: ${percent}%`;
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Engineer Performance */}
-          <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Engineer Completion Rate</h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={engineerPerformance}>
+          {/* Monthly Task Trend - Full Width */}
+          <div className="bg-gradient-to-br from-white to-cyan-50/30 rounded-lg shadow-lg p-6 border-2 border-cyan-200/50">
+            <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <div className="w-1 h-8 bg-gradient-to-b from-cyan-500 to-blue-600 rounded"></div>
+              Monthly Task Trend ({currentYear})
+            </h2>
+            <ResponsiveContainer width="100%" height={400}>
+              <AreaChart data={monthlyChartData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis 
-                  dataKey="name" 
+                  dataKey="month" 
                   angle={-45}
                   textAnchor="end"
                   height={100}
                   fontSize={12}
                 />
-                <YAxis domain={[0, 100]} />
-                <Tooltip formatter={(value: number) => `${value}%`} />
+                <YAxis 
+                  domain={[0, monthlyMaxValue > 0 ? Math.ceil(monthlyMaxValue / 200) * 200 : 200]}
+                  ticks={monthlyYAxisTicks}
+                  tickFormatter={(value) => value.toString()}
+                />
+                <Tooltip 
+                  formatter={(value: number, name: string) => {
+                    return [`${value} tasks`, name];
+                  }}
+                />
                 <Legend />
-                <Bar dataKey="completionRate" fill="#8b5cf6" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Monthly Task Trend */}
-          <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Monthly Task Trend</h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={monthlyChartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Area type="monotone" dataKey="tasks" stackId="1" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.6} />
-                <Area type="monotone" dataKey="completed" stackId="2" stroke="#10b981" fill="#10b981" fillOpacity={0.6} />
+                <Area type="monotone" dataKey="tasks" stackId="1" stroke="#3b82f6" fill="url(#tasksAreaGradient)" strokeWidth={2} />
+                <Area type="monotone" dataKey="completed" stackId="2" stroke="#10b981" fill="url(#completedAreaGradient)" strokeWidth={2} />
+                <defs>
+                  <linearGradient id="tasksAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.8} />
+                    <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.2} />
+                  </linearGradient>
+                  <linearGradient id="completedAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.8} />
+                    <stop offset="100%" stopColor="#10b981" stopOpacity={0.2} />
+                  </linearGradient>
+                </defs>
               </AreaChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Top Services */}
-          <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Top Services by Task Count</h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={serviceChartData} layout="vertical" margin={{ left: 20, right: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" />
-                <YAxis 
-                  dataKey="name" 
-                  type="category" 
-                  width={150} 
-                  fontSize={11}
-                  tick={{ fontSize: 11 }}
-                  interval={0}
-                />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="count" fill="#ec4899" radius={[0, 8, 8, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          {/* Rest of Charts - 2 columns (6 cols each) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Status Distribution Pie Chart */}
+            <div className="bg-gradient-to-br from-white to-purple-50/30 rounded-lg shadow-lg p-6 border-2 border-purple-200/50">
+              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <div className="w-1 h-8 bg-gradient-to-b from-purple-500 to-purple-600 rounded"></div>
+                Task Status Distribution
+              </h2>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={statusPieData.filter(d => d.value > 0)}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent, value }) => {
+                      // Only show label if value > 0 and percent is significant (> 5%)
+                      if (value === 0 || percent < 0.05) return '';
+                      return `${name}: ${(percent * 100).toFixed(0)}%`;
+                    }}
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {statusPieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    formatter={(value: number, name: string) => {
+                      if (value === 0) return null;
+                      return [`${value} (${((value / statusPieData.reduce((sum, d) => sum + d.value, 0)) * 100).toFixed(1)}%)`, name];
+                    }}
+                  />
+                  <Legend 
+                    wrapperStyle={{ paddingTop: '20px' }}
+                    formatter={(value: string) => {
+                      const dataEntry = statusPieData.find(d => d.name === value);
+                      if (!dataEntry || dataEntry.value === 0) return null;
+                      const total = statusPieData.reduce((sum, d) => sum + d.value, 0);
+                      const percent = total > 0 ? ((dataEntry.value / total) * 100).toFixed(0) : '0';
+                      return `${value}: ${percent}%`;
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Priority Distribution */}
+            <div className="bg-gradient-to-br from-white to-red-50/30 rounded-lg shadow-lg p-6 border-2 border-red-200/50">
+              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <div className="w-1 h-8 bg-gradient-to-b from-red-500 to-red-600 rounded"></div>
+                Priority Distribution
+              </h2>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={priorityPieData.filter(d => d.value > 0)}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent, value }) => {
+                      // Only show label if value > 0 and percent is significant (> 5%)
+                      if (value === 0 || percent < 0.05) return '';
+                      return `${name}: ${(percent * 100).toFixed(0)}%`;
+                    }}
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {priorityPieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    formatter={(value: number, name: string) => {
+                      if (value === 0) return null;
+                      return [`${value} (${((value / priorityPieData.reduce((sum, d) => sum + d.value, 0)) * 100).toFixed(1)}%)`, name];
+                    }}
+                  />
+                  <Legend 
+                    wrapperStyle={{ paddingTop: '20px' }}
+                    formatter={(value: string) => {
+                      const dataEntry = priorityPieData.find(d => d.name === value);
+                      if (!dataEntry || dataEntry.value === 0) return null;
+                      const total = priorityPieData.reduce((sum, d) => sum + d.value, 0);
+                      const percent = total > 0 ? ((dataEntry.value / total) * 100).toFixed(0) : '0';
+                      return `${value}: ${percent}%`;
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Engineer Performance */}
+            <div className="bg-gradient-to-br from-white to-purple-50/30 rounded-lg shadow-lg p-6 border-2 border-purple-200/50">
+              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <div className="w-1 h-8 bg-gradient-to-b from-purple-500 to-indigo-600 rounded"></div>
+                Engineer Completion Rate
+              </h2>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={engineerPerformance}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="name" 
+                    angle={-45}
+                    textAnchor="end"
+                    height={100}
+                    fontSize={12}
+                  />
+                  <YAxis domain={[0, 100]} />
+                  <Tooltip formatter={(value: number) => `${value}%`} />
+                  <Legend />
+                  <Bar dataKey="completionRate" fill="url(#completionGradient)" radius={[8, 8, 0, 0]} />
+                  <defs>
+                    <linearGradient id="completionGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#8b5cf6" stopOpacity={1} />
+                      <stop offset="50%" stopColor="#7c3aed" stopOpacity={1} />
+                      <stop offset="100%" stopColor="#6d28d9" stopOpacity={1} />
+                    </linearGradient>
+                  </defs>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Top Services */}
+            <div className="bg-gradient-to-br from-white to-pink-50/30 rounded-lg shadow-lg p-6 border-2 border-pink-200/50">
+              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <div className="w-1 h-8 bg-gradient-to-b from-pink-500 to-rose-600 rounded"></div>
+                Top Services by Task Count
+              </h2>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={serviceChartData} layout="vertical" margin={{ left: 20, right: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" />
+                  <YAxis 
+                    dataKey="name" 
+                    type="category" 
+                    width={150} 
+                    fontSize={11}
+                    tick={{ fontSize: 11 }}
+                    interval={0}
+                  />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="count" fill="url(#serviceGradient)" radius={[0, 8, 8, 0]} />
+                  <defs>
+                    <linearGradient id="serviceGradient" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#ec4899" stopOpacity={1} />
+                      <stop offset="50%" stopColor="#f472b6" stopOpacity={1} />
+                      <stop offset="100%" stopColor="#f9a8d4" stopOpacity={1} />
+                    </linearGradient>
+                  </defs>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
 

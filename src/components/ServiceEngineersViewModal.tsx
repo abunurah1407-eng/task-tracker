@@ -86,16 +86,16 @@ export default function ServiceEngineersViewModal({
         <head>
           <title>Services by Engineers Report - ${selectedYear}</title>
           <style>
-            body { font-family: Arial, sans-serif; padding: 20px; }
-            h1 { color: #1f2937; margin-bottom: 10px; }
-            .header { margin-bottom: 30px; border-bottom: 2px solid #3b82f6; padding-bottom: 15px; }
-            .service-card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
-            .service-name { font-size: 16px; font-weight: bold; color: #1f2937; margin-bottom: 10px; }
-            .engineer-row { margin-bottom: 8px; padding: 8px; background: #ffffff; border-left: 3px solid #d1d5db; }
-            .engineer-label { font-weight: 600; color: #4b5563; margin-right: 10px; min-width: 120px; display: inline-block; }
-            .month-badge { display: inline-block; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 4px; padding: 4px 8px; margin: 2px; font-size: 11px; }
-            .month-name { color: #4b5563; }
-            .month-count { font-weight: bold; color: #1f2937; margin-left: 4px; }
+            body { font-family: Arial, sans-serif; padding: 20px; background: #f9fafb; }
+            h1 { color: #1f2937; margin-bottom: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+            .header { margin-bottom: 30px; border-bottom: 3px solid #3b82f6; padding-bottom: 15px; }
+            .service-card { background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); border: 2px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+            .service-name { font-size: 16px; font-weight: bold; color: #1e293b; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 2px solid #cbd5e1; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); padding: 10px; border-radius: 6px; }
+            .engineer-row { margin-bottom: 8px; padding: 10px; background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); border-left: 4px solid #3b82f6; border-radius: 4px; }
+            .engineer-label { font-weight: 600; color: #1e40af; margin-right: 10px; min-width: 120px; display: inline-block; }
+            .month-badge { display: inline-block; background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border: 1px solid #10b981; border-radius: 6px; padding: 6px 10px; margin: 3px; font-size: 11px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+            .month-name { color: #065f46; font-weight: 600; }
+            .month-count { font-weight: bold; color: #047857; margin-left: 4px; background: #10b981; color: white; padding: 2px 6px; border-radius: 10px; }
             @media print {
               body { padding: 10px; }
               .service-card { page-break-inside: avoid; }

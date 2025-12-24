@@ -46,18 +46,31 @@ export default function EngineerSummaryModal({
         <head>
           <title>Engineers Summary Report - ${selectedYear}</title>
           <style>
-            body { font-family: Arial, sans-serif; padding: 20px; }
-            h1 { color: #1f2937; margin-bottom: 10px; }
-            .header { margin-bottom: 30px; border-bottom: 2px solid #3b82f6; padding-bottom: 15px; }
-            .engineer-card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
-            .engineer-name { font-size: 16px; font-weight: bold; color: #1f2937; margin-bottom: 10px; }
+            body { font-family: Arial, sans-serif; padding: 20px; background: #f9fafb; }
+            h1 { color: #1f2937; margin-bottom: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+            .header { margin-bottom: 30px; border-bottom: 3px solid #3b82f6; padding-bottom: 15px; }
+            .engineer-card { background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); border: 2px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+            .engineer-name { font-size: 16px; font-weight: bold; color: #1e293b; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 2px solid #cbd5e1; }
             .engineer-stats { display: flex; gap: 20px; margin-bottom: 10px; flex-wrap: wrap; }
-            .stat-item { font-size: 12px; }
-            .stat-label { color: #6b7280; }
-            .stat-value { font-weight: bold; color: #1f2937; }
-            .months-table { width: 100%; border-collapse: collapse; margin-top: 10px; border-top: 1px solid #e5e7eb; padding-top: 10px; }
-            .months-table th { background: #f3f4f6; border: 1px solid #d1d5db; padding: 6px 8px; font-size: 11px; font-weight: 600; text-align: center; color: #374151; }
-            .months-table td { border: 1px solid #d1d5db; padding: 8px; font-size: 12px; font-weight: bold; text-align: center; background: #ffffff; color: #1f2937; }
+            .stat-item { font-size: 12px; padding: 8px 12px; border-radius: 6px; border: 1px solid; }
+            .stat-item.total { background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-color: #0ea5e9; }
+            .stat-item.pending { background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); border-color: #f59e0b; }
+            .stat-item.in-progress { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-color: #3b82f6; }
+            .stat-item.completed { background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-color: #10b981; }
+            .stat-label { font-weight: 600; }
+            .stat-item.total .stat-label { color: #0369a1; }
+            .stat-item.pending .stat-label { color: #d97706; }
+            .stat-item.in-progress .stat-label { color: #2563eb; }
+            .stat-item.completed .stat-label { color: #059669; }
+            .stat-value { font-weight: bold; font-size: 14px; }
+            .stat-item.total .stat-value { color: #0c4a6e; }
+            .stat-item.pending .stat-value { color: #b45309; }
+            .stat-item.in-progress .stat-value { color: #1e40af; }
+            .stat-item.completed .stat-value { color: #047857; }
+            .months-table { width: 100%; border-collapse: collapse; margin-top: 10px; border-top: 2px solid #e5e7eb; padding-top: 10px; }
+            .months-table th { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border: 1px solid #1e40af; padding: 8px; font-size: 11px; font-weight: 600; text-align: center; }
+            .months-table td { border: 1px solid #d1d5db; padding: 8px; font-size: 12px; font-weight: bold; text-align: center; }
+            .months-table td:not(.zero) { background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); color: #065f46; }
             .months-table td.zero { color: #9ca3af; background: #f9fafb; }
             @media print {
               body { padding: 10px; }
@@ -76,19 +89,19 @@ export default function EngineerSummaryModal({
             <div class="engineer-card">
               <div class="engineer-name">${engineer}</div>
               <div class="engineer-stats">
-                <div class="stat-item">
+                <div class="stat-item total">
                   <span class="stat-label">Total:</span>
                   <span class="stat-value">${total}</span>
                 </div>
-                <div class="stat-item">
+                <div class="stat-item pending">
                   <span class="stat-label">Pending:</span>
                   <span class="stat-value">${pending}</span>
                 </div>
-                <div class="stat-item">
+                <div class="stat-item in-progress">
                   <span class="stat-label">In Progress:</span>
                   <span class="stat-value">${inProgress}</span>
                 </div>
-                <div class="stat-item">
+                <div class="stat-item completed">
                   <span class="stat-label">Completed:</span>
                   <span class="stat-value">${completed}</span>
                 </div>

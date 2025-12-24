@@ -15,7 +15,7 @@ const defaultTestUsers: User[] = [
   {
     id: '2',
     email: 'director@etec.com',
-    name: 'Director User',
+    name: 'Nasser',
     role: 'director',
     createdAt: new Date().toISOString(),
   },
