@@ -3,7 +3,8 @@ import { Task, Service } from '../types';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import TaskModal from './TaskModal';
-import { Plus, LogOut, Users, CheckCircle, Clock, Circle, Trash2, ChevronDown, ChevronRight, Menu, X, User } from 'lucide-react';
+import AboutModal from './AboutModal';
+import { Plus, LogOut, Users, CheckCircle, Clock, Circle, Trash2, ChevronDown, ChevronRight, Menu, X, User, Info } from 'lucide-react';
 
 export default function EngineerDashboard() {
   const { user, logout } = useAuth();
@@ -15,6 +16,7 @@ export default function EngineerDashboard() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'in-progress' | 'completed'>('all');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -427,6 +429,16 @@ export default function EngineerDashboard() {
                           </div>
                           <button
                             onClick={() => {
+                              setIsAboutModalOpen(true);
+                              setIsUserMenuOpen(false);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                          >
+                            <Info size={16} />
+                            About
+                          </button>
+                          <button
+                            onClick={() => {
                               logout();
                               setIsUserMenuOpen(false);
                             }}
@@ -478,6 +490,16 @@ export default function EngineerDashboard() {
                           View All Engineers
                         </a>
                         <div className="border-t border-gray-200 my-1"></div>
+                        <button
+                          onClick={() => {
+                            setIsAboutModalOpen(true);
+                            setIsMenuOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                        >
+                          <Info size={18} />
+                          About
+                        </button>
                         <button
                           onClick={() => {
                             logout();
@@ -820,6 +842,12 @@ export default function EngineerDashboard() {
             readOnlyEngineer={true}
           />
         )}
+
+        {/* About Modal */}
+        <AboutModal
+          isOpen={isAboutModalOpen}
+          onClose={() => setIsAboutModalOpen(false)}
+        />
       </div>
     </div>
   );

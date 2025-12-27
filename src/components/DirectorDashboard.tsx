@@ -14,9 +14,12 @@ import Chatbot from './Chatbot';
 import GroupedTasksByEngineer from './GroupedTasksByEngineer';
 import GroupedTasksByService from './GroupedTasksByService';
 import GroupedTasksByStatus from './GroupedTasksByStatus';
-import { Plus, Download, LogOut, Bell, Search, CheckCircle, Clock, Circle, FileText, UserPlus, Upload, Layers, ChevronDown, Menu, X, User, RefreshCw, Bot, Mail } from 'lucide-react';
+import AboutModal from './AboutModal';
+import { Plus, Download, LogOut, Bell, Search, CheckCircle, Clock, Circle, FileText, UserPlus, Upload, Layers, ChevronDown, Menu, X, User, RefreshCw, Bot, Mail, Info } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 export default function DirectorDashboard() {
   const { user, logout } = useAuth();
@@ -52,6 +55,16 @@ export default function DirectorDashboard() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'in-progress'>('all');
   const [isSendingEmails, setIsSendingEmails] = useState(false);
+  const [isChartSelectionModalOpen, setIsChartSelectionModalOpen] = useState(false);
+  const [selectedCharts, setSelectedCharts] = useState({
+    engineerTaskDistribution: true,
+    monthlyTaskTrend: true,
+    statusDistribution: true,
+    priorityDistribution: true,
+    engineerCompletionRate: true,
+    topServices: true,
+  });
+  const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -525,6 +538,82 @@ export default function DirectorDashboard() {
     }
   };
 
+  const exportServicesSummaryToPDF = () => {
+    // Create a printable report with services and task counts only
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    // Calculate service counts from all tasks
+    const serviceCounts = services.map(service => ({
+      name: service.name,
+      count: tasks.filter(t => t.service === service.name).length,
+    })).filter(item => item.count > 0)
+      .sort((a, b) => b.count - a.count);
+
+    const reportContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Services Summary Report</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; background: #f9fafb; }
+            h1 { color: #1f2937; margin-bottom: 10px; }
+            .header { margin-bottom: 30px; padding-bottom: 15px; border-bottom: 3px solid #3b82f6; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #d1d5db; padding: 12px; text-align: left; }
+            th { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; font-weight: bold; font-size: 14px; }
+            td { font-size: 13px; background: white; }
+            tr:nth-child(even) td { background: #f9fafb; }
+            .total-row { font-weight: bold; background: #e0f2fe !important; }
+            .total-row td { background: #e0f2fe !important; color: #0c4a6e; font-size: 14px; }
+            @media print {
+              body { padding: 10px; }
+              table { page-break-inside: auto; }
+              tr { page-break-inside: avoid; page-break-after: auto; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Services Summary Report</h1>
+            <p><strong>Total Tasks:</strong> ${tasks.length}</p>
+            <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+            <p><strong>Director:</strong> ${user?.name}</p>
+          </div>
+          
+          <h2>Services Task Count</h2>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 80%;">Service Name</th>
+                <th style="width: 20%; text-align: center;">Number of Tasks</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${serviceCounts.map(item => `
+                <tr>
+                  <td>${item.name}</td>
+                  <td style="text-align: center; font-weight: bold;">${item.count}</td>
+                </tr>
+              `).join('')}
+              <tr class="total-row">
+                <td><strong>Total</strong></td>
+                <td style="text-align: center;"><strong>${tasks.length}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(reportContent);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+    }, 250);
+  };
+
   const exportToPDF = () => {
     // Create a printable report
     const printWindow = window.open('', '_blank');
@@ -655,6 +744,180 @@ export default function DirectorDashboard() {
     setTimeout(() => {
       printWindow.print();
     }, 250);
+  };
+
+  const exportAllChartsToPDF = async (selectedChartIds?: string[]) => {
+    // Get selected charts or use all if not specified
+    const allChartIds = [
+      'engineerTaskDistribution',
+      'monthlyTaskTrend',
+      'statusDistribution',
+      'priorityDistribution',
+      'engineerCompletionRate',
+      'topServices'
+    ];
+
+    const chartIds = selectedChartIds || allChartIds.filter(id => selectedCharts[id as keyof typeof selectedCharts]);
+
+    if (chartIds.length === 0) {
+      alert('Please select at least one chart to export.');
+      return;
+    }
+
+    const chartTitlesMap: { [key: string]: string } = {
+      'engineerTaskDistribution': 'Engineer Task Distribution',
+      'monthlyTaskTrend': 'Monthly Task Trend',
+      'statusDistribution': 'Task Status Distribution',
+      'priorityDistribution': 'Priority Distribution',
+      'engineerCompletionRate': 'Engineer Completion Rate',
+      'topServices': 'Top Services by Task Count'
+    };
+
+    const chartTitles = chartIds.map(id => chartTitlesMap[id] || id);
+
+    // Show loading message with progress
+    const loadingMessage = document.createElement('div');
+    loadingMessage.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px 40px; border-radius: 12px; box-shadow: 0 8px 16px rgba(0,0,0,0.2); z-index: 10000; font-family: Arial, sans-serif; text-align: center; min-width: 300px;';
+    loadingMessage.innerHTML = `
+      <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px; color: #1f2937;">Generating PDF...</div>
+      <div style="font-size: 14px; color: #6b7280; margin-bottom: 15px;" id="progress-text">Preparing charts...</div>
+      <div style="width: 100%; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden;">
+        <div id="progress-bar" style="height: 100%; background: linear-gradient(90deg, #3b82f6, #8b5cf6); width: 0%; transition: width 0.3s;"></div>
+      </div>
+    `;
+    document.body.appendChild(loadingMessage);
+
+    const updateProgress = (current: number, total: number) => {
+      const progressText = document.getElementById('progress-text');
+      const progressBar = document.getElementById('progress-bar');
+      if (progressText) {
+        progressText.textContent = `Processing chart ${current} of ${total}...`;
+      }
+      if (progressBar) {
+        progressBar.style.width = `${(current / total) * 100}%`;
+      }
+    };
+
+    try {
+      const pdf = new jsPDF('landscape', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const margin = 10;
+      const contentWidth = pdfWidth - (margin * 2);
+
+      // Minimal yield to browser before starting
+      await new Promise(resolve => requestAnimationFrame(resolve));
+
+      for (let i = 0; i < chartIds.length; i++) {
+        const chartId = chartIds[i];
+        const chartTitle = chartTitles[i];
+        const element = document.querySelector(`[data-chart-id="${chartId}"]`) as HTMLElement;
+        
+        if (!element) {
+          console.warn(`Chart element not found: ${chartId}`);
+          continue;
+        }
+
+        updateProgress(i + 1, chartIds.length);
+
+        // Single yield to ensure browser stays responsive
+        await new Promise(resolve => requestAnimationFrame(resolve));
+
+        // Ultra-optimized html2canvas options for maximum speed
+        const canvas = await html2canvas(element, {
+          backgroundColor: '#ffffff',
+          scale: 0.75, // Further reduced for much faster rendering
+          logging: false,
+          useCORS: false, // Disable CORS for speed
+          allowTaint: true,
+          removeContainer: true,
+          width: element.offsetWidth,
+          height: element.offsetHeight,
+          foreignObjectRendering: false,
+          imageTimeout: 0,
+          proxy: undefined, // No proxy
+          ignoreElements: (el) => {
+            // Skip non-essential elements
+            return el.tagName === 'BUTTON' || el.classList.contains('hidden');
+          },
+          onclone: (clonedDoc) => {
+            // Hide interactive elements
+            const clonedElement = clonedDoc.querySelector(`[data-chart-id="${chartId}"]`);
+            if (clonedElement) {
+              const buttons = clonedElement.querySelectorAll('button');
+              buttons.forEach(btn => (btn as HTMLElement).style.display = 'none');
+              // Hide tooltips and other interactive elements
+              const tooltips = clonedElement.querySelectorAll('[class*="tooltip"], [class*="Tooltip"]');
+              tooltips.forEach(tooltip => (tooltip as HTMLElement).style.display = 'none');
+            }
+          }
+        });
+
+        // Minimal yield after capture
+        await new Promise(resolve => requestAnimationFrame(resolve));
+
+        // Use JPEG with lower quality for much faster processing and smaller size
+        const imgData = canvas.toDataURL('image/jpeg', 0.75); // JPEG with compression - much faster
+        const imgWidth = contentWidth;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+        // Yield before PDF operations
+        await new Promise(resolve => requestAnimationFrame(resolve));
+
+        // Add new page for each chart (except first)
+        if (i > 0) {
+          pdf.addPage();
+        }
+
+        // Add title
+        pdf.setFontSize(16);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(chartTitle, margin, margin + 10);
+
+        // Add chart image (JPEG format)
+        pdf.addImage(imgData, 'JPEG', margin, margin + 15, imgWidth, imgHeight);
+
+        // Clear canvas from memory immediately
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        canvas.width = 0;
+        canvas.height = 0;
+
+        // Minimal yield after each chart
+        await new Promise(resolve => requestAnimationFrame(resolve));
+      }
+
+      updateProgress(chartIds.length, chartIds.length);
+
+      // Small delay before saving
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Save PDF
+      pdf.save(`Task_Tracker_Charts_Report.pdf`);
+      
+      // Update message before closing
+      const progressText = document.getElementById('progress-text');
+      if (progressText) {
+        progressText.textContent = 'PDF generated successfully!';
+      }
+      
+      setTimeout(() => {
+        document.body.removeChild(loadingMessage);
+      }, 500);
+    } catch (error) {
+      console.error('Error exporting charts to PDF:', error);
+      const progressText = document.getElementById('progress-text');
+      if (progressText) {
+        progressText.textContent = 'Error generating PDF. Please try again.';
+        progressText.style.color = '#ef4444';
+      }
+      setTimeout(() => {
+        if (document.body.contains(loadingMessage)) {
+          document.body.removeChild(loadingMessage);
+        }
+      }, 2000);
+    }
   };
 
   // Skeleton Loading Component
@@ -815,6 +1078,26 @@ export default function DirectorDashboard() {
                         <Download size={16} />
                 Export CSV
               </button>
+                      <button
+                        onClick={() => {
+                          exportServicesSummaryToPDF();
+                          setIsMenuOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                      >
+                        <FileText size={16} />
+                        Export Services Summary (Numbers Only)
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsChartSelectionModalOpen(true);
+                          setIsMenuOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                      >
+                        <FileText size={16} />
+                        Export Charts as PDF
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -882,6 +1165,16 @@ export default function DirectorDashboard() {
                                 {unreadNotificationCount}
                               </span>
                             )}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setIsAboutModalOpen(true);
+                              setIsUserMenuOpen(false);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                          >
+                            <Info size={16} />
+                            About
                           </button>
                           <button
                             onClick={() => {
@@ -969,6 +1262,16 @@ export default function DirectorDashboard() {
                           <Download size={18} />
                           Export CSV
                         </button>
+                        <button
+                          onClick={() => {
+                            exportServicesSummaryToPDF();
+                            setIsMenuOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                        >
+                          <FileText size={18} />
+                          Export Services Summary (Numbers Only)
+                        </button>
                         <div className="border-t border-gray-200 my-1"></div>
                         <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Management</div>
               <Link
@@ -1002,6 +1305,16 @@ export default function DirectorDashboard() {
                   </span>
                 )}
               </button>
+                          <button
+                            onClick={() => {
+                              setIsAboutModalOpen(true);
+                              setIsMenuOpen(false);
+                            }}
+                            className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                          >
+                            <Info size={18} />
+                            About
+                          </button>
                         <div className="border-t border-gray-200 my-1"></div>
               <button
                           onClick={() => {
@@ -1366,7 +1679,7 @@ export default function DirectorDashboard() {
         {/* Charts Section */}
         <div className="space-y-6 mb-6">
           {/* Engineer Task Distribution - Full Width */}
-          <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
+          <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200" data-chart-id="engineerTaskDistribution">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Engineer Task Distribution</h2>
             <ResponsiveContainer width="100%" height={400}>
               <BarChart data={engineerChartData}>
@@ -1407,7 +1720,7 @@ export default function DirectorDashboard() {
           </div>
 
           {/* Monthly Task Trend - Full Width */}
-          <div className="bg-gradient-to-br from-white to-cyan-50/30 rounded-lg shadow-lg p-6 border-2 border-cyan-200/50">
+          <div className="bg-gradient-to-br from-white to-cyan-50/30 rounded-lg shadow-lg p-6 border-2 border-cyan-200/50" data-chart-id="monthlyTaskTrend">
             <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
               <div className="w-1 h-8 bg-gradient-to-b from-cyan-500 to-blue-600 rounded"></div>
               Monthly Task Trend ({currentYear})
@@ -1452,7 +1765,7 @@ export default function DirectorDashboard() {
           {/* Rest of Charts - 2 columns (6 cols each) */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Status Distribution Pie Chart */}
-            <div className="bg-gradient-to-br from-white to-purple-50/30 rounded-lg shadow-lg p-6 border-2 border-purple-200/50">
+            <div className="bg-gradient-to-br from-white to-purple-50/30 rounded-lg shadow-lg p-6 border-2 border-purple-200/50" data-chart-id="statusDistribution">
               <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                 <div className="w-1 h-8 bg-gradient-to-b from-purple-500 to-purple-600 rounded"></div>
                 Task Status Distribution
@@ -1498,7 +1811,7 @@ export default function DirectorDashboard() {
             </div>
 
             {/* Priority Distribution */}
-            <div className="bg-gradient-to-br from-white to-red-50/30 rounded-lg shadow-lg p-6 border-2 border-red-200/50">
+            <div className="bg-gradient-to-br from-white to-red-50/30 rounded-lg shadow-lg p-6 border-2 border-red-200/50" data-chart-id="priorityDistribution">
               <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                 <div className="w-1 h-8 bg-gradient-to-b from-red-500 to-red-600 rounded"></div>
                 Priority Distribution
@@ -1544,7 +1857,7 @@ export default function DirectorDashboard() {
             </div>
 
             {/* Engineer Performance */}
-            <div className="bg-gradient-to-br from-white to-purple-50/30 rounded-lg shadow-lg p-6 border-2 border-purple-200/50">
+            <div className="bg-gradient-to-br from-white to-purple-50/30 rounded-lg shadow-lg p-6 border-2 border-purple-200/50" data-chart-id="engineerCompletionRate">
               <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                 <div className="w-1 h-8 bg-gradient-to-b from-purple-500 to-indigo-600 rounded"></div>
                 Engineer Completion Rate
@@ -1575,7 +1888,7 @@ export default function DirectorDashboard() {
             </div>
 
             {/* Top Services */}
-            <div className="bg-gradient-to-br from-white to-pink-50/30 rounded-lg shadow-lg p-6 border-2 border-pink-200/50">
+            <div className="bg-gradient-to-br from-white to-pink-50/30 rounded-lg shadow-lg p-6 border-2 border-pink-200/50" data-chart-id="topServices">
               <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                 <div className="w-1 h-8 bg-gradient-to-b from-pink-500 to-rose-600 rounded"></div>
                 Top Services by Task Count
@@ -1839,6 +2152,144 @@ export default function DirectorDashboard() {
       <Chatbot
         isOpen={isChatbotOpen}
         onClose={() => setIsChatbotOpen(false)}
+      />
+
+      {/* Chart Selection Modal for PDF Export */}
+      {isChartSelectionModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold text-gray-800">Select Charts to Export</h2>
+              <button
+                onClick={() => setIsChartSelectionModalOpen(false)}
+                className="text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            <div className="space-y-3 mb-6">
+              <label className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selectedCharts.engineerTaskDistribution}
+                  onChange={(e) => setSelectedCharts({ ...selectedCharts, engineerTaskDistribution: e.target.checked })}
+                  className="w-5 h-5 text-main focus:ring-main rounded"
+                />
+                <span className="text-gray-700 font-medium">Engineer Task Distribution</span>
+              </label>
+              <label className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selectedCharts.monthlyTaskTrend}
+                  onChange={(e) => setSelectedCharts({ ...selectedCharts, monthlyTaskTrend: e.target.checked })}
+                  className="w-5 h-5 text-main focus:ring-main rounded"
+                />
+                <span className="text-gray-700 font-medium">Monthly Task Trend</span>
+              </label>
+              <label className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selectedCharts.statusDistribution}
+                  onChange={(e) => setSelectedCharts({ ...selectedCharts, statusDistribution: e.target.checked })}
+                  className="w-5 h-5 text-main focus:ring-main rounded"
+                />
+                <span className="text-gray-700 font-medium">Task Status Distribution</span>
+              </label>
+              <label className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selectedCharts.priorityDistribution}
+                  onChange={(e) => setSelectedCharts({ ...selectedCharts, priorityDistribution: e.target.checked })}
+                  className="w-5 h-5 text-main focus:ring-main rounded"
+                />
+                <span className="text-gray-700 font-medium">Priority Distribution</span>
+              </label>
+              <label className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selectedCharts.engineerCompletionRate}
+                  onChange={(e) => setSelectedCharts({ ...selectedCharts, engineerCompletionRate: e.target.checked })}
+                  className="w-5 h-5 text-main focus:ring-main rounded"
+                />
+                <span className="text-gray-700 font-medium">Engineer Completion Rate</span>
+              </label>
+              <label className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selectedCharts.topServices}
+                  onChange={(e) => setSelectedCharts({ ...selectedCharts, topServices: e.target.checked })}
+                  className="w-5 h-5 text-main focus:ring-main rounded"
+                />
+                <span className="text-gray-700 font-medium">Top Services by Task Count</span>
+              </label>
+            </div>
+            <div className="flex gap-3 mb-4">
+              <button
+                onClick={() => {
+                  setSelectedCharts({
+                    engineerTaskDistribution: true,
+                    monthlyTaskTrend: true,
+                    statusDistribution: true,
+                    priorityDistribution: true,
+                    engineerCompletionRate: true,
+                    topServices: true,
+                  });
+                }}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                Select All
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedCharts({
+                    engineerTaskDistribution: false,
+                    monthlyTaskTrend: false,
+                    statusDistribution: false,
+                    priorityDistribution: false,
+                    engineerCompletionRate: false,
+                    topServices: false,
+                  });
+                }}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                Deselect All
+              </button>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setIsChartSelectionModalOpen(false)}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const selectedIds = Object.entries(selectedCharts)
+                    .filter(([_, selected]) => selected)
+                    .map(([chartId]) => chartId);
+                  
+                  if (selectedIds.length === 0) {
+                    alert('Please select at least one chart to export.');
+                    return;
+                  }
+                  
+                  setIsChartSelectionModalOpen(false);
+                  exportAllChartsToPDF(selectedIds);
+                }}
+                className="flex-1 px-4 py-2 bg-main text-white rounded-lg hover:bg-opacity-90 transition-colors flex items-center justify-center gap-2"
+              >
+                <Download size={18} />
+                Export Selected ({Object.values(selectedCharts).filter(Boolean).length})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* About Modal */}
+      <AboutModal
+        isOpen={isAboutModalOpen}
+        onClose={() => setIsAboutModalOpen(false)}
       />
 
     </div>
