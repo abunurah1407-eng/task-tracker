@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:17-alpine
+    container_name: task-tracker-db-dev
+    environment:
+      POSTGRES_DB: task_tracker
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5432:5432"
+    volumes:
+      - tasktracker_postgres_data:/var/lib/postgresql/data
+      - ./backend/src/db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - task-tracker-network-dev
+
+  # Backend API (Development mode with hot reload)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: task-tracker-api-dev
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: task_tracker
+      DB_USER: postgres
+      DB_PASSWORD: postgres123
+      JWT_SECRET: task_tracker_super_secret_key_change_in_production_2024
+      JWT_EXPIRES_IN: 7d
+      CORS_ORIGIN: http://localhost:5173
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/package.json:/app/package.json
+      - ./backend/tsconfig.json:/app/tsconfig.json
+      - /app/node_modules
+    networks:
+      - task-tracker-network-dev
+    command: npm run dev
+    restart: unless-stopped
+
+  # Frontend (Development mode with hot reload)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: task-tracker-frontend-dev
+    environment:
+      - VITE_API_URL=http://localhost:3001/api
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    volumes:
+      - ./src:/app/src
+      - ./public:/app/public
+      - ./index.html:/app/index.html
+      - ./vite.config.ts:/app/vite.config.ts
+      - ./package.json:/app/package.json
+      - ./tsconfig.json:/app/tsconfig.json
+      - ./tsconfig.node.json:/app/tsconfig.node.json
+      - ./tailwind.config.js:/app/tailwind.config.js
+      - ./postcss.config.js:/app/postcss.config.js
+      - /app/node_modules
+    networks:
+      - task-tracker-network-dev
+    command: npm run dev
+    restart: unless-stopped
+
+volumes:
+  tasktracker_postgres_data:
+    external: true
+
+networks:
+  task-tracker-network-dev:
+    driver: bridge
+

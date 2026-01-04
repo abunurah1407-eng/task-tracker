@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:17-alpine
+    container_name: task-tracker-db
+    environment:
+      POSTGRES_DB: task_tracker
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/src/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./backend/src/db/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - task-tracker-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: task-tracker-api
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: task_tracker
+      DB_USER: postgres
+      DB_PASSWORD: postgres123
+      JWT_SECRET: task_tracker_super_secret_key_change_in_production_2024
+      JWT_EXPIRES_IN: 7d
+      CORS_ORIGIN: http://localhost
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend/src/db:/app/db
+    networks:
+      - task-tracker-network
+    restart: unless-stopped
+
+  # Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:3001/api
+    container_name: task-tracker-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - task-tracker-network
+    restart: unless-stopped
+
+  # Database Admin (Adminer)
+  adminer:
+    image: adminer:latest
+    container_name: task-tracker-adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    networks:
+      - task-tracker-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  task-tracker-network:
+    driver: bridge
+

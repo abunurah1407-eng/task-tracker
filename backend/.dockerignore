@@ -1,0 +1,14 @@
+node_modules
+npm-debug.log
+.env
+.env.local
+dist
+*.log
+coverage
+.DS_Store
+src/db/2025
+src/db/*.js
+src/db/*.ts
+!src/db/schema.sql
+!src/db/seed.sql
+src/db/migration_*.sql
