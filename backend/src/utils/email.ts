@@ -330,6 +330,17 @@ const generateInvitationEmailBody = (data: InvitationEmailData): string => {
                     </tr>
                   </table>
                   
+                  <!-- Access Note -->
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #fef3c7; border-left: 4px solid #f59e0b; margin: 25px 0;">
+                    <tr>
+                      <td style="padding: 15px 20px;">
+                        <p style="margin: 0; padding: 0; font-size: 14px; line-height: 1.6; color: #333333;">
+                          <strong>⚠️ Access Note:</strong> This application is accessible from <strong>Tower jump server - CS only</strong>.
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                  
                   <p style="margin: 20px 0 0 0; padding: 0; font-size: 14px; line-height: 1.6; color: #333333;">
                     If you did not expect this invitation, please ignore this email or contact your administrator.
                   </p>
@@ -512,6 +523,17 @@ const generateWeeklyReminderEmailBody = (data: WeeklyReminderEmailData): string 
                   <p style="margin: 20px 0 0 0; padding: 0; font-size: 14px; line-height: 1.6; color: #6b7280; text-align: center;">
                     رابط النظام: <a href="${portalUrl}" style="color: #667eea; text-decoration: none;">${portalUrl}</a>
                   </p>
+                  
+                  <!-- Access Note -->
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #fef3c7; border-left: 4px solid #f59e0b; margin: 25px 0;">
+                    <tr>
+                      <td style="padding: 15px 20px;">
+                        <p style="margin: 0; padding: 0; font-size: 14px; line-height: 1.6; color: #333333;">
+                          <strong>⚠️ Access Note:</strong> This application is accessible from <strong>Tower jump server - CS only</strong>.
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
                   
                   <!-- Signature -->
                   <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 40px 0 20px 0; padding: 20px 0; border-top: 1px solid #e5e7eb;">
