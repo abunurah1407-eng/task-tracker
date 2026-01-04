@@ -95,16 +95,50 @@ export default function EngineersManagement() {
           email: formData.email,
           color: formData.color,
         });
+        await loadEngineers();
+        handleCloseModal();
       } else {
+        // If sending invitation, show preview first
+        if (formData.sendInvitation) {
+          try {
+            const preview = await api.previewCreateEngineerInvitation({
+              name: formData.name,
+              email: formData.email,
+              sendInvitation: true,
+            });
+
+            const confirmationMessage = `
+Invitation Email Preview:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Engineer: ${preview.preview.engineerName}
+Email: ${preview.preview.engineerEmail}
+Expires: ${preview.preview.expiresDate} at ${preview.preview.expiresTime}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+An invitation email will be sent to:
+${preview.preview.engineerEmail}
+
+Do you want to create this engineer and send the invitation email?`;
+
+            if (!confirm(confirmationMessage)) {
+              return;
+            }
+          } catch (previewError: any) {
+            alert(`Failed to preview invitation: ${previewError.message || 'Unknown error'}`);
+            return;
+          }
+        }
+
         await api.createEngineerUser({
           name: formData.name,
           email: formData.email,
           color: formData.color,
           sendInvitation: formData.sendInvitation,
+          confirm: formData.sendInvitation ? true : undefined,
         });
+        await loadEngineers();
+        handleCloseModal();
       }
-      await loadEngineers();
-      handleCloseModal();
     } catch (error: any) {
       alert(error.message || 'Failed to save engineer');
     }
@@ -125,21 +159,43 @@ export default function EngineersManagement() {
   // Safe clipboard copy function with fallback
   const copyToClipboard = async (text: string): Promise<boolean> => {
     try {
-      // Try modern Clipboard API first
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(text);
-        return true;
+      // Try modern Clipboard API first - check more thoroughly
+      if (typeof navigator !== 'undefined' && 
+          navigator.clipboard && 
+          typeof navigator.clipboard.writeText === 'function') {
+        try {
+          await navigator.clipboard.writeText(text);
+          return true;
+        } catch (clipboardError) {
+          // Clipboard API failed, fall through to fallback
+          console.warn('Clipboard API failed, using fallback:', clipboardError);
+        }
       }
       
-      // Fallback to older method
+      // Fallback to older method using execCommand
       const textArea = document.createElement('textarea');
       textArea.value = text;
       textArea.style.position = 'fixed';
       textArea.style.left = '-999999px';
       textArea.style.top = '-999999px';
+      textArea.style.opacity = '0';
+      textArea.setAttribute('readonly', '');
       document.body.appendChild(textArea);
-      textArea.focus();
-      textArea.select();
+      
+      // For iOS devices
+      if (navigator.userAgent.match(/ipad|iphone/i)) {
+        const range = document.createRange();
+        range.selectNodeContents(textArea);
+        const selection = window.getSelection();
+        if (selection) {
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+        textArea.setSelectionRange(0, 999999);
+      } else {
+        textArea.focus();
+        textArea.select();
+      }
       
       try {
         const successful = document.execCommand('copy');
@@ -147,6 +203,7 @@ export default function EngineersManagement() {
         return successful;
       } catch (err) {
         document.body.removeChild(textArea);
+        console.error('execCommand copy failed:', err);
         return false;
       }
     } catch (error) {
@@ -157,21 +214,76 @@ export default function EngineersManagement() {
 
   const handleSendInvitation = async (id: number) => {
     try {
+      // First, get preview
+      const engineer = engineers.find(e => e.id === id);
+      if (!engineer) {
+        alert('Engineer not found');
+        return;
+      }
+
+      try {
+        const preview = await api.previewSendInvitation(id.toString());
+
+        const confirmationMessage = `
+Invitation Email Preview:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Engineer: ${preview.preview.engineerName}
+Email: ${preview.preview.engineerEmail}
+Expires: ${preview.preview.expiresDate} at ${preview.preview.expiresTime}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+An invitation email will be sent to:
+${preview.preview.engineerEmail}
+
+Do you want to send the invitation email?`;
+
+        if (!confirm(confirmationMessage)) {
+          return;
+        }
+      } catch (previewError: any) {
+        alert(`Failed to preview invitation: ${previewError.message || 'Unknown error'}`);
+        return;
+      }
+
+      // Send the invitation
       const result = await api.sendInvitation(id.toString());
       await loadEngineers();
       
-      // Try to copy to clipboard
-      const copied = await copyToClipboard(result.invitationLink);
+      // Try to copy to clipboard - handle errors gracefully
+      let copied = false;
+      try {
+        copied = await copyToClipboard(result.invitationLink);
+      } catch (clipboardError) {
+        console.warn('Clipboard copy attempt failed:', clipboardError);
+        // Continue even if clipboard fails
+      }
+      
+      // Build message based on email and clipboard status
+      let message = '';
+      if (result.emailSent) {
+        message = '✅ Invitation email sent successfully!\n\n';
+      } else {
+        message = '⚠️ Invitation link generated, but email was NOT sent.\n';
+        if (result.emailError) {
+          message += `Error: ${result.emailError}\n`;
+        }
+        message += '\nPlease send the invitation link manually:\n\n';
+      }
+      
+      message += `Invitation Link:\n${result.invitationLink}\n\n`;
+      message += `Expires: ${new Date(result.expiresAt).toLocaleString()}`;
       
       if (copied) {
         setCopiedLink(id);
         setTimeout(() => setCopiedLink(null), 2000);
-        alert(`Invitation link copied to clipboard!\n\n${result.invitationLink}\n\nExpires: ${new Date(result.expiresAt).toLocaleString()}`);
+        message += '\n\n✅ Link copied to clipboard!';
       } else {
-        // If clipboard copy failed, just show the link
-        alert(`Invitation link generated!\n\n${result.invitationLink}\n\nExpires: ${new Date(result.expiresAt).toLocaleString()}\n\nPlease copy the link manually.`);
+        message += '\n\n⚠️ Please copy the link manually.';
       }
+      
+      alert(message);
     } catch (error: any) {
+      console.error('Error sending invitation:', error);
       alert(error.message || 'Failed to send invitation');
     }
   };
@@ -189,11 +301,16 @@ export default function EngineersManagement() {
   };
 
   const copyInvitationLink = async (link: string, id: number) => {
-    const copied = await copyToClipboard(link);
-    if (copied) {
-      setCopiedLink(id);
-      setTimeout(() => setCopiedLink(null), 2000);
-    } else {
+    try {
+      const copied = await copyToClipboard(link);
+      if (copied) {
+        setCopiedLink(id);
+        setTimeout(() => setCopiedLink(null), 2000);
+      } else {
+        alert(`Failed to copy to clipboard. Please copy manually:\n\n${link}`);
+      }
+    } catch (error) {
+      console.error('Error copying invitation link:', error);
       alert(`Failed to copy to clipboard. Please copy manually:\n\n${link}`);
     }
   };

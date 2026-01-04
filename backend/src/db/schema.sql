@@ -20,8 +20,10 @@ CREATE TABLE IF NOT EXISTS engineers (
   name VARCHAR(255) UNIQUE NOT NULL,
   color VARCHAR(7) NOT NULL,
   tasks_total INTEGER DEFAULT 0,
+  user_id INTEGER,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
 -- Services table
@@ -75,6 +77,21 @@ CREATE TABLE IF NOT EXISTS notifications (
   FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE SET NULL
 );
 
+-- Reminder settings table
+CREATE TABLE IF NOT EXISTS reminder_settings (
+  id SERIAL PRIMARY KEY,
+  enabled BOOLEAN DEFAULT TRUE,
+  frequency VARCHAR(50) NOT NULL DEFAULT 'weekly' CHECK (frequency IN ('daily', 'weekly', 'biweekly', 'monthly')),
+  day_of_week INTEGER DEFAULT 0 CHECK (day_of_week >= 0 AND day_of_week <= 6), -- 0 = Sunday, 6 = Saturday
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Insert default reminder settings (Sunday, weekly, enabled)
+INSERT INTO reminder_settings (enabled, frequency, day_of_week)
+VALUES (TRUE, 'weekly', 0)
+ON CONFLICT DO NOTHING;
+
 -- Indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_tasks_engineer ON tasks(engineer);
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
@@ -85,4 +102,5 @@ CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_users_invitation_token ON users(invitation_token);
+CREATE INDEX IF NOT EXISTS idx_engineers_user_id ON engineers(user_id);
 

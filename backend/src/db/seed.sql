@@ -92,3 +92,12 @@ INSERT INTO users (email, name, password_hash, role, engineer_name) VALUES
   ('a.aaahmari@etec.gov.sa', 'Aryam Al-Ahmari', '$2a$10$8DLyLZvQTp/BgUM9Dra80uNXk0sCqFrMRZw/kk4QJpNnwLsz5DsRq', 'engineer', 'Aryam Al-Ahmari')
 ON CONFLICT (email) DO NOTHING;
 
+-- Map engineers to users by setting user_id
+-- This matches engineers.name with users.engineer_name
+UPDATE engineers e
+SET user_id = u.id
+FROM users u
+WHERE e.name = u.engineer_name
+  AND u.role = 'engineer'
+  AND e.user_id IS NULL;
+

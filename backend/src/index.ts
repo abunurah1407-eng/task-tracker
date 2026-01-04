@@ -10,6 +10,10 @@ import teamTaskRoutes from './routes/teamTasks';
 import importRoutes from './routes/import';
 import chatbotRoutes from './routes/chatbot';
 import emailRoutes from './routes/email';
+import reminderRoutes from './routes/reminder';
+
+// Initialize scheduler
+import './services/scheduler';
 
 dotenv.config();
 
@@ -56,6 +60,7 @@ app.use('/api/team-tasks', teamTaskRoutes);
 app.use('/api/import', importRoutes);
 app.use('/api/chatbot', chatbotRoutes);
 app.use('/api/email', emailRoutes);
+app.use('/api/reminder', reminderRoutes);
 
 // Error handling
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

@@ -7,10 +7,15 @@ import { sendInvitationEmail } from '../utils/email';
 
 const router = Router();
 
-// Get all engineers (just the engineer records)
+// Get all engineers (just the engineer records, with user info if available)
 router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const result = await pool.query('SELECT * FROM engineers ORDER BY name');
+    const result = await pool.query(
+      `SELECT e.*, u.id as user_id, u.email as user_email, u.name as user_name
+       FROM engineers e
+       LEFT JOIN users u ON e.user_id = u.id
+       ORDER BY e.name`
+    );
     res.json(result.rows);
   } catch (error) {
     console.error('Get engineers error:', error);
@@ -65,6 +70,45 @@ router.get('/users', authenticate, async (req: AuthRequest, res: Response) => {
   }
 });
 
+// Preview invitation email for new engineer (before creating)
+router.post('/users/preview', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    // Only admin and director can preview
+    if (req.user?.role !== 'admin' && req.user?.role !== 'director') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const { name, email, sendInvitation } = req.body;
+    
+    if (!name || !email) {
+      return res.status(400).json({ error: 'Name and email are required' });
+    }
+
+    if (!sendInvitation) {
+      return res.status(400).json({ error: 'Preview only available when sendInvitation is true' });
+    }
+
+    // Generate preview invitation link (not saved to DB)
+    const invitationToken = crypto.randomBytes(32).toString('hex');
+    const invitationExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    const invitationLink = `${process.env.FRONTEND_URL || 'http://localhost'}/invite/${invitationToken}`;
+
+    res.json({
+      preview: {
+        engineerName: name,
+        engineerEmail: email.toLowerCase(),
+        invitationLink,
+        expiresAt: invitationExpires.toISOString(),
+        expiresDate: invitationExpires.toLocaleDateString(),
+        expiresTime: invitationExpires.toLocaleTimeString(),
+      },
+    });
+  } catch (error: any) {
+    console.error('Preview invitation error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Create engineer user (creates both user and engineer record)
 router.post('/users', authenticate, async (req: AuthRequest, res: Response) => {
   try {
@@ -73,21 +117,20 @@ router.post('/users', authenticate, async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    const { name, email, color, sendInvitation } = req.body;
+    const { name, email, color, sendInvitation, confirm } = req.body;
     
     if (!name || !email || !color) {
       return res.status(400).json({ error: 'Name, email, and color are required' });
     }
 
+    // Require confirmation if sending invitation
+    if (sendInvitation && confirm !== true) {
+      return res.status(400).json({ error: 'Confirmation required. Please set confirm: true to send invitation email.' });
+    }
+
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-
-      // Create engineer record
-      await client.query(
-        'INSERT INTO engineers (name, color) VALUES ($1, $2) ON CONFLICT (name) DO NOTHING',
-        [name, color]
-      );
 
       // Generate invitation token if requested
       let invitationToken = null;
@@ -97,7 +140,7 @@ router.post('/users', authenticate, async (req: AuthRequest, res: Response) => {
         invitationExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
       }
 
-      // Create user account
+      // Create user account first (we need the user id for the engineer record)
       const passwordHash = sendInvitation ? null : await bcrypt.hash('password123', 10);
       
       const userResult = await client.query(
@@ -107,29 +150,47 @@ router.post('/users', authenticate, async (req: AuthRequest, res: Response) => {
         [email.toLowerCase(), name, passwordHash, name, invitationToken, invitationExpires]
       );
 
+      const userId = userResult.rows[0].id;
+
+      // Create or update engineer record with user_id
+      await client.query(
+        `INSERT INTO engineers (name, color, user_id) 
+         VALUES ($1, $2, $3) 
+         ON CONFLICT (name) 
+         DO UPDATE SET user_id = $3, color = $2`,
+        [name, color, userId]
+      );
+
       await client.query('COMMIT');
 
       const user = userResult.rows[0];
       const invitationLink = sendInvitation ? `${process.env.FRONTEND_URL || 'http://localhost'}/invite/${invitationToken}` : null;
       
       // Send invitation email if requested
+      let emailSent = false;
+      let emailError = null;
       if (sendInvitation && invitationLink && invitationExpires) {
         try {
-          await sendInvitationEmail({
+          emailSent = await sendInvitationEmail({
             engineerName: name,
             engineerEmail: email.toLowerCase(),
             invitationLink,
             expiresAt: invitationExpires,
           });
-        } catch (emailError) {
-          console.error('Error sending invitation email:', emailError);
-          // Don't fail the request if email fails, just log it
+          if (!emailSent) {
+            emailError = 'Email could not be sent. Please check SMTP configuration.';
+          }
+        } catch (err: any) {
+          console.error('Error sending invitation email:', err);
+          emailError = err.message || 'Failed to send email';
         }
       }
       
       res.status(201).json({
         ...user,
         invitationLink,
+        emailSent,
+        emailError: emailError || undefined,
       });
     } catch (error: any) {
       await client.query('ROLLBACK');
@@ -275,6 +336,49 @@ router.delete('/users/:id', authenticate, async (req: AuthRequest, res: Response
   }
 });
 
+// Preview invitation email for existing engineer
+router.post('/users/:id/invite/preview', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    // Only admin and director can preview
+    if (req.user?.role !== 'admin' && req.user?.role !== 'director') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const { id } = req.params;
+
+    // Get user details
+    const userResult = await pool.query(
+      'SELECT name, email FROM users WHERE id = $1',
+      [id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const user = userResult.rows[0];
+
+    // Generate preview invitation link (not saved to DB)
+    const invitationToken = crypto.randomBytes(32).toString('hex');
+    const invitationExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    const invitationLink = `${process.env.FRONTEND_URL || 'http://localhost'}/invite/${invitationToken}`;
+
+    res.json({
+      preview: {
+        engineerName: user.name,
+        engineerEmail: user.email,
+        invitationLink,
+        expiresAt: invitationExpires.toISOString(),
+        expiresDate: invitationExpires.toLocaleDateString(),
+        expiresTime: invitationExpires.toLocaleTimeString(),
+      },
+    });
+  } catch (error) {
+    console.error('Preview invitation error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Generate invitation link for engineer
 router.post('/users/:id/invite', authenticate, async (req: AuthRequest, res: Response) => {
   try {
@@ -284,6 +388,13 @@ router.post('/users/:id/invite', authenticate, async (req: AuthRequest, res: Res
     }
 
     const { id } = req.params;
+    const { confirm } = req.body;
+
+    // Require confirmation
+    if (confirm !== true) {
+      return res.status(400).json({ error: 'Confirmation required. Please set confirm: true to send invitation email.' });
+    }
+
     const invitationToken = crypto.randomBytes(32).toString('hex');
     const invitationExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
@@ -307,19 +418,29 @@ router.post('/users/:id/invite', authenticate, async (req: AuthRequest, res: Res
     const invitationLink = `${process.env.FRONTEND_URL || 'http://localhost'}/invite/${invitationToken}`;
 
     // Send invitation email
+    let emailSent = false;
+    let emailError = null;
     try {
-      await sendInvitationEmail({
+      emailSent = await sendInvitationEmail({
         engineerName: user.name,
         engineerEmail: user.email,
         invitationLink,
         expiresAt: invitationExpires,
       });
-    } catch (emailError) {
-      console.error('Error sending invitation email:', emailError);
-      // Don't fail the request if email fails, just log it
+      if (!emailSent) {
+        emailError = 'Email could not be sent. Please check SMTP configuration.';
+      }
+    } catch (err: any) {
+      console.error('Error sending invitation email:', err);
+      emailError = err.message || 'Failed to send email';
     }
 
-    res.json({ invitationLink, expiresAt: invitationExpires });
+    res.json({ 
+      invitationLink, 
+      expiresAt: invitationExpires,
+      emailSent,
+      emailError: emailError || undefined,
+    });
   } catch (error) {
     console.error('Generate invitation error:', error);
     res.status(500).json({ error: 'Internal server error' });

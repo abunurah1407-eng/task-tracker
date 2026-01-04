@@ -28,6 +28,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile.dev
     container_name: task-tracker-api-dev
+    env_file:
+      - ./backend/.env
     environment:
       NODE_ENV: development
       PORT: 3001
@@ -39,6 +41,7 @@ services:
       JWT_SECRET: task_tracker_super_secret_key_change_in_production_2024
       JWT_EXPIRES_IN: 7d
       CORS_ORIGIN: http://localhost:5173
+      FRONTEND_URL: http://localhost:5173
     ports:
       - "3001:3001"
     depends_on:
@@ -48,6 +51,7 @@ services:
       - ./backend/src:/app/src
       - ./backend/package.json:/app/package.json
       - ./backend/tsconfig.json:/app/tsconfig.json
+      - ./backend/.env:/app/.env
       - /app/node_modules
     networks:
       - task-tracker-network-dev

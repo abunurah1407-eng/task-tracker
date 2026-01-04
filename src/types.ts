@@ -3,6 +3,9 @@ export interface Engineer {
   name: string;
   tasksTotal: number;
   color: string;
+  userId?: number; // Reference to users table
+  userEmail?: string; // User email if user exists
+  userName?: string; // User name if user exists
 }
 
 export interface Service {

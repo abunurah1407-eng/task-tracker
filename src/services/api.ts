@@ -176,7 +176,23 @@ class ApiService {
     return this.request<any[]>('/engineers/users');
   }
 
-  async createEngineerUser(user: { name: string; email: string; color: string; sendInvitation?: boolean }) {
+  async previewCreateEngineerInvitation(user: { name: string; email: string; sendInvitation?: boolean }) {
+    return this.request<{
+      preview: {
+        engineerName: string;
+        engineerEmail: string;
+        invitationLink: string;
+        expiresAt: string;
+        expiresDate: string;
+        expiresTime: string;
+      };
+    }>('/engineers/users/preview', {
+      method: 'POST',
+      body: JSON.stringify(user),
+    });
+  }
+
+  async createEngineerUser(user: { name: string; email: string; color: string; sendInvitation?: boolean; confirm?: boolean }) {
     return this.request<any>('/engineers/users', {
       method: 'POST',
       body: JSON.stringify(user),
@@ -196,9 +212,25 @@ class ApiService {
     });
   }
 
-  async sendInvitation(id: string) {
-    return this.request<{ invitationLink: string; expiresAt: string }>(`/engineers/users/${id}/invite`, {
+  async previewSendInvitation(id: string) {
+    return this.request<{
+      preview: {
+        engineerName: string;
+        engineerEmail: string;
+        invitationLink: string;
+        expiresAt: string;
+        expiresDate: string;
+        expiresTime: string;
+      };
+    }>(`/engineers/users/${id}/invite/preview`, {
       method: 'POST',
+    });
+  }
+
+  async sendInvitation(id: string) {
+    return this.request<{ invitationLink: string; expiresAt: string; emailSent?: boolean; emailError?: string }>(`/engineers/users/${id}/invite`, {
+      method: 'POST',
+      body: JSON.stringify({ confirm: true }),
     });
   }
 
@@ -210,10 +242,32 @@ class ApiService {
   }
 
   // Email
+  async previewFollowUpEmails(engineerIds?: number[]) {
+    return this.request<{
+      summary: {
+        totalEngineers: number;
+        engineersWithTasks: number;
+        totalPendingTasks: number;
+        totalInProgressTasks: number;
+        totalTasks: number;
+      };
+      preview: Array<{
+        engineer: string;
+        email: string;
+        pendingCount: number;
+        inProgressCount: number;
+        totalTasks: number;
+      }>;
+    }>('/email/follow-up/preview', {
+      method: 'POST',
+      body: JSON.stringify({ engineerIds }),
+    });
+  }
+
   async sendFollowUpEmails(engineerIds?: number[]) {
     return this.request<{ message: string; results: Array<{ engineer: string; email: string; success: boolean; pendingCount: number; inProgressCount: number }> }>('/email/follow-up', {
       method: 'POST',
-      body: JSON.stringify({ engineerIds }),
+      body: JSON.stringify({ engineerIds, confirm: true }),
     });
   }
 
@@ -277,6 +331,41 @@ class ApiService {
     }
 
     return response.json();
+  }
+
+  // Reminder settings
+  async getReminderSettings() {
+    return this.request<{
+      enabled: boolean;
+      frequency: 'daily' | 'weekly' | 'biweekly' | 'monthly';
+      dayOfWeek: number;
+      dayName: string;
+    }>('/reminder/settings', {
+      method: 'GET',
+    });
+  }
+
+  async updateReminderSettings(settings: {
+    enabled?: boolean;
+    frequency?: 'daily' | 'weekly' | 'biweekly' | 'monthly';
+    dayOfWeek?: number;
+  }) {
+    return this.request<{
+      enabled: boolean;
+      frequency: string;
+      dayOfWeek: number;
+      dayName: string;
+      message: string;
+    }>('/reminder/settings', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    });
+  }
+
+  async testReminderEmail() {
+    return this.request<{ message: string }>('/reminder/test', {
+      method: 'POST',
+    });
   }
 }
 

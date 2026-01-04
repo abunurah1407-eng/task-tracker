@@ -15,7 +15,8 @@ import GroupedTasksByEngineer from './GroupedTasksByEngineer';
 import GroupedTasksByService from './GroupedTasksByService';
 import GroupedTasksByStatus from './GroupedTasksByStatus';
 import AboutModal from './AboutModal';
-import { Plus, Download, LogOut, Bell, Search, CheckCircle, Clock, Circle, FileText, UserPlus, Upload, Layers, ChevronDown, Menu, X, User, RefreshCw, Bot, Mail, Info } from 'lucide-react';
+import ReminderSettings from './ReminderSettings';
+import { Plus, Download, LogOut, Bell, Search, CheckCircle, Clock, Circle, FileText, UserPlus, Upload, Layers, ChevronDown, Menu, X, User, RefreshCw, Bot, Mail, Info, Settings } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import html2canvas from 'html2canvas';
@@ -65,6 +66,7 @@ export default function DirectorDashboard() {
     topServices: true,
   });
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
+  const [isReminderSettingsOpen, setIsReminderSettingsOpen] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -536,14 +538,62 @@ export default function DirectorDashboard() {
   const uniqueServices = Array.from(new Set(tasks.map(t => t.service))).sort();
 
   const handleSendFollowUpEmails = async () => {
-    if (!confirm('Are you sure you want to send follow-up emails to all engineers with pending or in-progress tasks?')) {
-      return;
-    }
-
     setIsSendingEmails(true);
     try {
+      // First, get preview of emails to be sent
+      const preview = await api.previewFollowUpEmails();
+      
+      if (preview.preview.length === 0) {
+        alert('No engineers have pending or in-progress tasks. No emails to send.');
+        setIsSendingEmails(false);
+        return;
+      }
+
+      // Build summary message
+      const summaryMessage = `
+Email Summary:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Total Engineers: ${preview.summary.totalEngineers}
+Engineers with Tasks: ${preview.summary.engineersWithTasks}
+Total Emails to Send: ${preview.summary.engineersWithTasks}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Total Tasks:
+  • Pending: ${preview.summary.totalPendingTasks}
+  • In Progress: ${preview.summary.totalInProgressTasks}
+  • Total: ${preview.summary.totalTasks}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Engineers who will receive emails:
+${preview.preview.map((p, i) => 
+  `${i + 1}. ${p.engineer} (${p.email})\n   - Pending: ${p.pendingCount}, In Progress: ${p.inProgressCount}, Total: ${p.totalTasks}`
+).join('\n\n')}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Do you want to send these ${preview.summary.engineersWithTasks} email(s)?`;
+
+      // Show preview and get confirmation
+      if (!confirm(summaryMessage)) {
+        setIsSendingEmails(false);
+        return;
+      }
+
+      // Send the emails
       const result = await api.sendFollowUpEmails();
-      alert(`Success! ${result.message}\n\nSent to ${result.results.length} engineer(s):\n${result.results.map(r => `- ${r.engineer} (${r.email}): ${r.pendingCount} pending, ${r.inProgressCount} in-progress`).join('\n')}`);
+      
+      // Show results
+      const successCount = result.results.filter(r => r.success).length;
+      const failCount = result.results.filter(r => !r.success).length;
+      
+      let resultMessage = `Email sending completed!\n\n`;
+      resultMessage += `Successfully sent: ${successCount}\n`;
+      if (failCount > 0) {
+        resultMessage += `Failed: ${failCount}\n`;
+      }
+      resultMessage += `\nDetails:\n${result.results.map(r => 
+        `${r.success ? '✓' : '✗'} ${r.engineer} (${r.email}): ${r.pendingCount} pending, ${r.inProgressCount} in-progress`
+      ).join('\n')}`;
+      
+      alert(resultMessage);
     } catch (error: any) {
       console.error('Error sending follow-up emails:', error);
       alert(`Failed to send follow-up emails: ${error.message || 'Unknown error'}`);
@@ -1182,6 +1232,16 @@ export default function DirectorDashboard() {
                           </button>
                           <button
                             onClick={() => {
+                              setIsReminderSettingsOpen(true);
+                              setIsUserMenuOpen(false);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                          >
+                            <Settings size={16} />
+                            Reminder Settings
+                          </button>
+                          <button
+                            onClick={() => {
                               setIsAboutModalOpen(true);
                               setIsUserMenuOpen(false);
                             }}
@@ -1319,6 +1379,16 @@ export default function DirectorDashboard() {
                   </span>
                 )}
               </button>
+                          <button
+                            onClick={() => {
+                              setIsReminderSettingsOpen(true);
+                              setIsMenuOpen(false);
+                            }}
+                            className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                          >
+                            <Settings size={18} />
+                            Reminder Settings
+                          </button>
                           <button
                             onClick={() => {
                               setIsAboutModalOpen(true);
@@ -2295,6 +2365,26 @@ export default function DirectorDashboard() {
                 <Download size={18} />
                 Export Selected ({Object.values(selectedCharts).filter(Boolean).length})
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reminder Settings Modal */}
+      {isReminderSettingsOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-800">Reminder Settings</h2>
+              <button
+                onClick={() => setIsReminderSettingsOpen(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            <div className="p-6">
+              <ReminderSettings />
             </div>
           </div>
         </div>
