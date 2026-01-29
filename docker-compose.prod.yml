@@ -71,7 +71,7 @@ services:
     image: ${DOCKER_HUB_USERNAME:-abunurah1407}/task-tracker-frontend:${IMAGE_TAG:-latest}
     container_name: task-tracker-frontend
     ports:
-      - "${FRONTEND_PORT:-8080}:80"
+      - "${FRONTEND_PORT:-80}:80"
     depends_on:
       - backend
     networks:
