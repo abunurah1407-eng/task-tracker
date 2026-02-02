@@ -145,7 +145,11 @@ router.post('/test', authenticate, async (req: AuthRequest, res: Response) => {
     }
 
     const { sendWeeklyReminderEmail } = await import('../utils/email');
-    const portalUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    let portalUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    // Ensure HTTPS in production (keep localhost as http for development)
+    if (!portalUrl.includes('localhost') && !portalUrl.includes('127.0.0.1')) {
+      portalUrl = portalUrl.replace(/^http:\/\//, 'https://');
+    }
     
     // Send test email to m.ageeli@etec.gov.sa
     const testEmail = 'm.ageeli@etec.gov.sa';

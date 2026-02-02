@@ -38,7 +38,7 @@ export default function ImportModal({ isOpen, onClose, onImportComplete }: Impor
   const [isLoading, setIsLoading] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null);
+  const [importResult, setImportResult] = useState<{ imported: number; skipped: number; taskIds?: number[] } | null>(null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -86,6 +86,19 @@ export default function ImportModal({ isOpen, onClose, onImportComplete }: Impor
     try {
       const result = await api.importTasks(file, selectedMonth, selectedYear);
       setImportResult(result);
+      
+      // Save import info to localStorage for undo functionality
+      if (result.taskIds && result.taskIds.length > 0) {
+        const importInfo = {
+          taskIds: result.taskIds,
+          imported: result.imported,
+          month: selectedMonth,
+          year: selectedYear,
+          timestamp: new Date().toISOString(),
+        };
+        localStorage.setItem('lastImport', JSON.stringify(importInfo));
+      }
+      
       setTimeout(() => {
         onImportComplete();
         handleClose();
@@ -298,6 +311,9 @@ export default function ImportModal({ isOpen, onClose, onImportComplete }: Impor
                 <p className="text-green-600 text-sm mt-1">
                   Imported: {importResult.imported} tasks | Skipped: {importResult.skipped} rows
                 </p>
+                <p className="text-xs text-green-600 mt-2">
+                  You can undo this import from the dashboard at any time.
+                </p>
               </div>
             </div>
           )}
@@ -309,7 +325,7 @@ export default function ImportModal({ isOpen, onClose, onImportComplete }: Impor
             onClick={handleClose}
             className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
           >
-            Cancel
+            {importResult ? 'Close' : 'Cancel'}
           </button>
           {preview && !importResult && (
             <button

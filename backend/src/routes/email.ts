@@ -1,7 +1,8 @@
 import { Router, Response } from 'express';
 import { pool } from '../config/database';
 import { authenticate, AuthRequest } from '../middleware/auth';
-import { sendFollowUpEmail, FollowUpEmailData } from '../utils/email';
+import { sendFollowUpEmail, FollowUpEmailData, sendInvitationEmail, sendPasswordResetEmail, sendWeeklyReminderEmail, sendTaskAssignedEmail } from '../utils/email';
+import crypto from 'crypto';
 
 const router = Router();
 
@@ -189,6 +190,189 @@ router.post('/follow-up', authenticate, async (req: AuthRequest, res: Response) 
     });
   } catch (error: any) {
     console.error('Error sending follow-up emails:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+// Test email templates (admin only)
+router.post('/test', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    // Only admin can test emails
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden: Admin access required' });
+    }
+
+    const { template, testEmail } = req.body;
+
+    if (!template || !testEmail) {
+      return res.status(400).json({ error: 'Template type and test email are required' });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(testEmail)) {
+      return res.status(400).json({ error: 'Invalid email address' });
+    }
+
+    let result: any = { success: false, message: '', template };
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    let secureUrl = frontendUrl;
+    // Ensure HTTPS in production
+    if (!secureUrl.includes('localhost') && !secureUrl.includes('127.0.0.1')) {
+      secureUrl = secureUrl.replace(/^http:\/\//, 'https://');
+    }
+
+    switch (template) {
+      case 'invitation': {
+        const invitationToken = crypto.randomBytes(32).toString('hex');
+        const invitationExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+        const invitationLink = `${secureUrl}/invite/${invitationToken}`;
+
+        const emailSent = await sendInvitationEmail({
+          engineerName: 'Test User',
+          engineerEmail: testEmail,
+          invitationLink,
+          expiresAt: invitationExpires,
+        });
+
+        result = {
+          success: emailSent,
+          message: emailSent 
+            ? 'Invitation email sent successfully' 
+            : 'Invitation email failed to send (check SMTP configuration)',
+          template: 'invitation',
+          invitationLink,
+        };
+        break;
+      }
+
+      case 'password-reset': {
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const resetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+        const resetLink = `${secureUrl}/reset-password/${resetToken}`;
+
+        const emailSent = await sendPasswordResetEmail({
+          userName: 'Test User',
+          userEmail: testEmail,
+          resetLink,
+          expiresAt: resetExpires,
+        });
+
+        result = {
+          success: emailSent,
+          message: emailSent 
+            ? 'Password reset email sent successfully' 
+            : 'Password reset email failed to send (check SMTP configuration)',
+          template: 'password-reset',
+          resetLink,
+        };
+        break;
+      }
+
+      case 'weekly-reminder': {
+        const emailSent = await sendWeeklyReminderEmail({
+          portalUrl: secureUrl,
+          testEmail, // Send only to test email
+        });
+
+        result = {
+          success: emailSent,
+          message: emailSent 
+            ? 'Weekly reminder email sent successfully' 
+            : 'Weekly reminder email failed to send (check SMTP configuration)',
+          template: 'weekly-reminder',
+        };
+        break;
+      }
+
+      case 'follow-up': {
+        // Create sample tasks for testing
+        const samplePendingTasks = [
+          {
+            id: 1,
+            service: 'Sample Service 1',
+            engineer: 'Test Engineer',
+            week: 1,
+            month: 'January',
+            year: 2026,
+            status: 'pending' as const,
+            priority: 'high' as const,
+            description: 'This is a test pending task',
+          },
+        ];
+
+        const sampleInProgressTasks = [
+          {
+            id: 2,
+            service: 'Sample Service 2',
+            engineer: 'Test Engineer',
+            week: 2,
+            month: 'January',
+            year: 2026,
+            status: 'in-progress' as const,
+            priority: 'medium' as const,
+            description: 'This is a test in-progress task',
+          },
+        ];
+
+        const emailSent = await sendFollowUpEmail({
+          engineerName: 'Test Engineer',
+          engineerEmail: testEmail,
+          pendingTasks: samplePendingTasks,
+          inProgressTasks: sampleInProgressTasks,
+        });
+
+        result = {
+          success: emailSent,
+          message: emailSent 
+            ? 'Follow-up email sent successfully' 
+            : 'Follow-up email failed to send (check SMTP configuration)',
+          template: 'follow-up',
+        };
+        break;
+      }
+
+      case 'task-assigned': {
+        let frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        // Ensure HTTPS in production
+        if (!frontendUrl.includes('localhost') && !frontendUrl.includes('127.0.0.1')) {
+          frontendUrl = frontendUrl.replace(/^http:\/\//, 'https://');
+        }
+
+        const emailSent = await sendTaskAssignedEmail({
+          engineerName: 'Test Engineer',
+          engineerEmail: testEmail,
+          taskDetails: {
+            service: 'Sample Service',
+            week: 1,
+            month: 'January',
+            year: 2026,
+            status: 'pending',
+            priority: 'high',
+            description: 'This is a test task assignment email with sample task details.',
+          },
+          assignedBy: 'Test Administrator',
+          portalUrl: frontendUrl,
+        });
+
+        result = {
+          success: emailSent,
+          message: emailSent 
+            ? 'Task assigned email sent successfully' 
+            : 'Task assigned email failed to send (check SMTP configuration)',
+          template: 'task-assigned',
+        };
+        break;
+      }
+
+      default:
+        return res.status(400).json({ error: 'Invalid template type. Valid types: invitation, password-reset, weekly-reminder, follow-up, task-assigned' });
+    }
+
+    res.json(result);
+  } catch (error: any) {
+    console.error('Error testing email template:', error);
     res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });

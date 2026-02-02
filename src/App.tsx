@@ -9,6 +9,9 @@ import EngineersView from './components/EngineersView';
 import EngineersManagement from './components/EngineersManagement';
 import ServicesManagement from './components/ServicesManagement';
 import InviteResetPassword from './components/InviteResetPassword';
+import ForgotPassword from './components/ForgotPassword';
+import ResetPassword from './components/ResetPassword';
+import EmailTest from './components/EmailTest';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -38,14 +41,16 @@ function AppContent() {
   return (
     <Routes>
       <Route path="/invite/:token" element={<InviteResetPassword />} />
-      <Route path="/" element={isAuthenticated ? <Navigate to={user?.role === 'engineer' ? '/my-tasks' : user?.role === 'director' ? '/dashboard' : '/dashboard'} replace /> : <LandingPage />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password/:token" element={<ResetPassword />} />
+      <Route path="/" element={isAuthenticated ? <Navigate to={user?.role === 'engineer' ? '/my-tasks' : '/dashboard'} replace /> : <LandingPage />} />
       <Route
         path="/dashboard"
         element={
           <ProtectedRoute>
             {user?.role === 'engineer' ? (
               <Navigate to="/my-tasks" replace />
-            ) : user?.role === 'director' ? (
+            ) : (user?.role === 'director' || user?.role === 'admin') ? (
               <DirectorDashboard />
             ) : (
               <Dashboard />
@@ -82,6 +87,14 @@ function AppContent() {
         element={
           <ProtectedRoute>
             {user?.role === 'admin' || user?.role === 'director' ? <ServicesManagement /> : <Navigate to="/dashboard" replace />}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/email-test"
+        element={
+          <ProtectedRoute>
+            {user?.role === 'admin' ? <EmailTest /> : <Navigate to="/dashboard" replace />}
           </ProtectedRoute>
         }
       />

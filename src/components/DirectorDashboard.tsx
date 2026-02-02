@@ -6,6 +6,7 @@ import TaskModal from './TaskModal';
 import NotificationPanel from './NotificationPanel';
 import TaskItem from './TaskItem';
 import ImportModal from './ImportModal';
+import UndoImport from './UndoImport';
 import ServicesSummaryModal from './ServicesSummaryModal';
 import EngineerSummaryModal from './EngineerSummaryModal';
 import EngineerServicesViewModal from './EngineerServicesViewModal';
@@ -16,7 +17,7 @@ import GroupedTasksByService from './GroupedTasksByService';
 import GroupedTasksByStatus from './GroupedTasksByStatus';
 import AboutModal from './AboutModal';
 import ReminderSettings from './ReminderSettings';
-import { Plus, Download, LogOut, Bell, Search, CheckCircle, Clock, Circle, FileText, UserPlus, Upload, Layers, ChevronDown, Menu, X, User, RefreshCw, Bot, Mail, Info, Settings } from 'lucide-react';
+import { Plus, Download, LogOut, Bell, Search, CheckCircle, Clock, Circle, FileText, UserPlus, Upload, Layers, ChevronDown, Menu, X, User, RefreshCw, Bot, Mail, Info, Settings, Shield, TestTube } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import html2canvas from 'html2canvas';
@@ -1180,7 +1181,7 @@ Do you want to send these ${preview.summary.engineersWithTasks} email(s)?`;
                         className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
                       >
                         <UserPlus size={16} />
-                        Engineers Management
+                        {user?.role === 'admin' ? 'Users Management' : 'Engineers Management'}
                       </Link>
                       <Link
                         to="/services-management"
@@ -1189,6 +1190,15 @@ Do you want to send these ${preview.summary.engineersWithTasks} email(s)?`;
                         <Layers size={16} />
                         Services Management
                       </Link>
+                      {user?.role === 'admin' && (
+                        <Link
+                          to="/email-test"
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                        >
+                          <TestTube size={16} />
+                          Test Email Templates
+                        </Link>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1417,6 +1427,9 @@ Do you want to send these ${preview.summary.engineersWithTasks} email(s)?`;
               </div>
             </div>
           </div>
+
+          {/* Undo Import */}
+          <UndoImport onUndoComplete={loadData} />
 
           {/* Year Summary */}
           <div className="bg-main rounded-lg shadow-lg p-6 mb-6 text-white">

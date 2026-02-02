@@ -4,6 +4,7 @@ import { AuthRequest, authenticate } from '../middleware/auth';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { sendInvitationEmail } from '../utils/email';
+import { formatDateSA, formatTimeSA } from '../utils/date';
 
 const router = Router();
 
@@ -47,7 +48,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   }
 });
 
-// Get all engineer users (users with role='engineer')
+// Get all users (admin sees all, director sees only engineers)
 router.get('/users', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     // Only admin and director can access
@@ -55,17 +56,28 @@ router.get('/users', authenticate, async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
+    // Admin sees all users (admin, director, engineer), director sees only engineers
+    const whereClause = req.user?.role === 'admin' 
+      ? '' 
+      : "WHERE u.role = 'engineer'";
+
     const result = await pool.query(
-      `SELECT u.id, u.email, u.name, u.role, u.engineer_name, u.created_at, u.invitation_token, u.invitation_expires,
-              e.color, e.tasks_total
+      `SELECT u.id, u.email, u.name, u.role, u.engineer_name, u.color as user_color, u.created_at, u.updated_at, u.invitation_token, u.invitation_expires,
+              COALESCE(u.color, e.color) as color, e.tasks_total
        FROM users u
        LEFT JOIN engineers e ON u.engineer_name = e.name
-       WHERE u.role = 'engineer'
-       ORDER BY u.name`
+       ${whereClause}
+       ORDER BY 
+         CASE u.role 
+           WHEN 'admin' THEN 1
+           WHEN 'director' THEN 2
+           WHEN 'engineer' THEN 3
+         END,
+         u.name`
     );
     res.json(result.rows);
   } catch (error) {
-    console.error('Get engineer users error:', error);
+    console.error('Get users error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -91,7 +103,12 @@ router.post('/users/preview', authenticate, async (req: AuthRequest, res: Respon
     // Generate preview invitation link (not saved to DB)
     const invitationToken = crypto.randomBytes(32).toString('hex');
     const invitationExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-    const invitationLink = `${process.env.FRONTEND_URL || 'http://localhost'}/invite/${invitationToken}`;
+    let frontendUrl = process.env.FRONTEND_URL || 'http://localhost';
+    // Ensure HTTPS in production (keep localhost as http for development)
+    if (!frontendUrl.includes('localhost') && !frontendUrl.includes('127.0.0.1')) {
+      frontendUrl = frontendUrl.replace(/^http:\/\//, 'https://');
+    }
+    const invitationLink = `${frontendUrl}/invite/${invitationToken}`;
 
     res.json({
       preview: {
@@ -99,8 +116,8 @@ router.post('/users/preview', authenticate, async (req: AuthRequest, res: Respon
         engineerEmail: email.toLowerCase(),
         invitationLink,
         expiresAt: invitationExpires.toISOString(),
-        expiresDate: invitationExpires.toLocaleDateString(),
-        expiresTime: invitationExpires.toLocaleTimeString(),
+        expiresDate: formatDateSA(invitationExpires),
+        expiresTime: formatTimeSA(invitationExpires),
       },
     });
   } catch (error: any) {
@@ -361,7 +378,12 @@ router.post('/users/:id/invite/preview', authenticate, async (req: AuthRequest, 
     // Generate preview invitation link (not saved to DB)
     const invitationToken = crypto.randomBytes(32).toString('hex');
     const invitationExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-    const invitationLink = `${process.env.FRONTEND_URL || 'http://localhost'}/invite/${invitationToken}`;
+    let frontendUrl = process.env.FRONTEND_URL || 'http://localhost';
+    // Ensure HTTPS in production (keep localhost as http for development)
+    if (!frontendUrl.includes('localhost') && !frontendUrl.includes('127.0.0.1')) {
+      frontendUrl = frontendUrl.replace(/^http:\/\//, 'https://');
+    }
+    const invitationLink = `${frontendUrl}/invite/${invitationToken}`;
 
     res.json({
       preview: {
@@ -369,8 +391,8 @@ router.post('/users/:id/invite/preview', authenticate, async (req: AuthRequest, 
         engineerEmail: user.email,
         invitationLink,
         expiresAt: invitationExpires.toISOString(),
-        expiresDate: invitationExpires.toLocaleDateString(),
-        expiresTime: invitationExpires.toLocaleTimeString(),
+        expiresDate: formatDateSA(invitationExpires),
+        expiresTime: formatTimeSA(invitationExpires),
       },
     });
   } catch (error) {
@@ -415,7 +437,12 @@ router.post('/users/:id/invite', authenticate, async (req: AuthRequest, res: Res
       [invitationToken, invitationExpires, id]
     );
 
-    const invitationLink = `${process.env.FRONTEND_URL || 'http://localhost'}/invite/${invitationToken}`;
+    let frontendUrl = process.env.FRONTEND_URL || 'http://localhost';
+    // Ensure HTTPS in production (keep localhost as http for development)
+    if (!frontendUrl.includes('localhost') && !frontendUrl.includes('127.0.0.1')) {
+      frontendUrl = frontendUrl.replace(/^http:\/\//, 'https://');
+    }
+    const invitationLink = `${frontendUrl}/invite/${invitationToken}`;
 
     // Send invitation email
     let emailSent = false;

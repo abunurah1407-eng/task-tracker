@@ -61,6 +61,8 @@ RUN apk del python3 make g++ cairo-dev jpeg-dev pango-dev giflib-dev pixman-dev
 COPY --from=builder /app/dist ./dist
 
 # Copy database initialization files
+# Note: seed.sql is included in image but NOT executed in production
+# It's only available for manual seeding if needed
 COPY src/db/schema.sql /app/db/schema.sql
 COPY src/db/seed.sql /app/db/seed.sql
 

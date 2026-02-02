@@ -8,11 +8,36 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash VARCHAR(255),
   role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'director', 'engineer')),
   engineer_name VARCHAR(255),
+  color VARCHAR(7),
   invitation_token VARCHAR(255) DEFAULT NULL,
   invitation_expires TIMESTAMP DEFAULT NULL,
+  password_reset_token VARCHAR(255) DEFAULT NULL,
+  password_reset_expires TIMESTAMP DEFAULT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Add color column if it doesn't exist (for existing databases)
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                 WHERE table_name = 'users' AND column_name = 'color') THEN
+    ALTER TABLE users ADD COLUMN color VARCHAR(7);
+  END IF;
+END $$;
+
+-- Add password reset token columns if they don't exist (for existing databases)
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                 WHERE table_name = 'users' AND column_name = 'password_reset_token') THEN
+    ALTER TABLE users ADD COLUMN password_reset_token VARCHAR(255) DEFAULT NULL;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                 WHERE table_name = 'users' AND column_name = 'password_reset_expires') THEN
+    ALTER TABLE users ADD COLUMN password_reset_expires TIMESTAMP DEFAULT NULL;
+  END IF;
+END $$;
 
 -- Engineers table
 CREATE TABLE IF NOT EXISTS engineers (
@@ -102,5 +127,6 @@ CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_users_invitation_token ON users(invitation_token);
+CREATE INDEX IF NOT EXISTS idx_users_password_reset_token ON users(password_reset_token);
 CREATE INDEX IF NOT EXISTS idx_engineers_user_id ON engineers(user_id);
 

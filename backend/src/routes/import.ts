@@ -268,15 +268,9 @@ router.post('/preview', authenticate, upload.single('file'), async (req: ImportR
         }
       }
 
-      // For engineers, only process rows that match their engineer name (or if engineer column is empty, use logged-in engineer)
+      // For engineers, use logged-in engineer name regardless of what's in the Excel file
       if (loggedInEngineer) {
-        if (engineer && engineer.toLowerCase() !== loggedInEngineer.toLowerCase()) {
-          invalidRows++;
-          continue; // Skip rows for other engineers
-        }
-        if (!engineer) {
-          engineer = loggedInEngineer; // Use logged-in engineer if column is empty
-        }
+        engineer = loggedInEngineer; // Always use logged-in engineer, ignore Excel value
       }
 
       if (!engineer || !service || !weekStr) {
@@ -540,6 +534,7 @@ router.post('/import', authenticate, upload.single('file'), async (req: ImportRe
     // Import tasks
     let imported = 0;
     let skipped = 0;
+    const importedTaskIds: number[] = [];
 
     for (let i = headerRow + 1; i < data.length; i++) {
       const row = data[i] as Record<string, any>;
@@ -596,11 +591,12 @@ router.post('/import', authenticate, upload.single('file'), async (req: ImportRe
       const notes = description || null;
 
       try {
-        await client.query(
+        const result = await client.query(
           `INSERT INTO tasks (service, engineer, week, month, year, status, priority, notes) 
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
           [service, engineer, week, month, year, status, priority, notes]
         );
+        importedTaskIds.push(result.rows[0].id);
         imported++;
       } catch (error: any) {
         skipped++;
@@ -626,11 +622,69 @@ router.post('/import', authenticate, upload.single('file'), async (req: ImportRe
       skipped,
       month,
       year,
+      taskIds: importedTaskIds, // Return task IDs for undo functionality
     });
   } catch (error: any) {
     await client.query('ROLLBACK');
     console.error('Import error:', error);
     res.status(500).json({ error: error.message || 'Failed to import file' });
+  } finally {
+    client.release();
+  }
+});
+
+// Undo import - delete tasks by their IDs
+router.post('/undo', authenticate, async (req: AuthRequest, res: Response) => {
+  const client = await pool.connect();
+  
+  try {
+    const { taskIds } = req.body;
+    
+    if (!taskIds || !Array.isArray(taskIds) || taskIds.length === 0) {
+      return res.status(400).json({ error: 'Task IDs are required' });
+    }
+
+    // Validate that all taskIds are numbers
+    const validTaskIds = taskIds.filter(id => typeof id === 'number' && id > 0);
+    if (validTaskIds.length === 0) {
+      return res.status(400).json({ error: 'Invalid task IDs provided' });
+    }
+
+    await client.query('BEGIN');
+
+    // Get engineer names from tasks before deleting (for updating task counts)
+    const tasksResult = await client.query(
+      `SELECT DISTINCT engineer FROM tasks WHERE id = ANY($1::int[])`,
+      [validTaskIds]
+    );
+    const affectedEngineers = tasksResult.rows.map(row => row.engineer);
+
+    // Delete the tasks
+    const deleteResult = await client.query(
+      `DELETE FROM tasks WHERE id = ANY($1::int[]) RETURNING id`,
+      [validTaskIds]
+    );
+
+    const deletedCount = deleteResult.rows.length;
+
+    // Update engineer task counts
+    for (const engineer of affectedEngineers) {
+      await client.query(
+        'UPDATE engineers SET tasks_total = (SELECT COUNT(*) FROM tasks WHERE engineer = $1) WHERE name = $1',
+        [engineer]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      deleted: deletedCount,
+    });
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    console.error('Undo import error:', error);
+    res.status(500).json({ error: error.message || 'Failed to undo import' });
   } finally {
     client.release();
   }

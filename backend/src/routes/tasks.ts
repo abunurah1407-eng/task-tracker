@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { pool } from '../config/database';
 import { AuthRequest, authenticate, requireRole } from '../middleware/auth';
+import { sendTaskAssignedEmail } from '../utils/email';
 
 const router = Router();
 
@@ -108,6 +109,46 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       [service]
     );
     
+    // Send email notification if task is assigned by admin or director
+    if ((req.user?.role === 'admin' || req.user?.role === 'director') && engineer) {
+      try {
+        // Get engineer's email from users table
+        const engineerResult = await pool.query(
+          `SELECT u.email, u.name 
+           FROM users u 
+           WHERE u.engineer_name = $1 AND u.role = 'engineer' AND u.email IS NOT NULL 
+           LIMIT 1`,
+          [engineer]
+        );
+        
+        if (engineerResult.rows.length > 0) {
+          const engineerEmail = engineerResult.rows[0].email;
+          const engineerName = engineerResult.rows[0].name || engineer;
+          const assignedBy = req.user.name || (req.user.role === 'admin' ? 'Administrator' : 'Director');
+          const portalUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+          
+          await sendTaskAssignedEmail({
+            engineerName,
+            engineerEmail,
+            taskDetails: {
+              service,
+              week,
+              month,
+              year,
+              status,
+              priority,
+              description: taskDescription || undefined,
+            },
+            assignedBy,
+            portalUrl,
+          });
+        }
+      } catch (emailError) {
+        // Log error but don't fail the task creation
+        console.error('Error sending task assignment email:', emailError);
+      }
+    }
+    
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Create task error:', error);
@@ -175,6 +216,62 @@ router.post('/bulk', authenticate, async (req: AuthRequest, res: Response) => {
         );
       }
       
+      // Send email notifications if tasks are assigned by admin or director
+      if (req.user?.role === 'admin' || req.user?.role === 'director') {
+        const assignedBy = req.user.name || (req.user.role === 'admin' ? 'Administrator' : 'Director');
+        const portalUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        
+        // Group tasks by engineer to send one email per engineer
+        const tasksByEngineer = new Map<string, any[]>();
+        for (const task of createdTasks) {
+          if (!tasksByEngineer.has(task.engineer)) {
+            tasksByEngineer.set(task.engineer, []);
+          }
+          tasksByEngineer.get(task.engineer)!.push(task);
+        }
+        
+        // Send emails after commit
+        for (const [engineerName, tasks] of tasksByEngineer.entries()) {
+          try {
+            // Get engineer's email from users table
+            const engineerResult = await pool.query(
+              `SELECT u.email, u.name 
+               FROM users u 
+               WHERE u.engineer_name = $1 AND u.role = 'engineer' AND u.email IS NOT NULL 
+               LIMIT 1`,
+              [engineerName]
+            );
+            
+            if (engineerResult.rows.length > 0) {
+              const engineerEmail = engineerResult.rows[0].email;
+              const engineerDisplayName = engineerResult.rows[0].name || engineerName;
+              
+              // Send email for each task (or could combine into one email with multiple tasks)
+              for (const task of tasks) {
+                await sendTaskAssignedEmail({
+                  engineerName: engineerDisplayName,
+                  engineerEmail,
+                  taskDetails: {
+                    service: task.service,
+                    week: task.week,
+                    month: task.month,
+                    year: task.year,
+                    status: task.status,
+                    priority: task.priority,
+                    description: task.notes || undefined,
+                  },
+                  assignedBy,
+                  portalUrl,
+                });
+              }
+            }
+          } catch (emailError) {
+            // Log error but don't fail the bulk creation
+            console.error(`Error sending task assignment email for ${engineerName}:`, emailError);
+          }
+        }
+      }
+      
       await client.query('COMMIT');
       
       res.status(201).json({ 
@@ -239,6 +336,46 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       'UPDATE services SET count = (SELECT COUNT(*) FROM tasks WHERE service = $1) WHERE name = $1',
       [service]
     );
+    
+    // Send email notification if engineer was changed (task reassigned) by admin or director
+    if ((req.user?.role === 'admin' || req.user?.role === 'director') && engineer && oldTask.rows[0].engineer !== engineer) {
+      try {
+        // Get engineer's email from users table
+        const engineerResult = await pool.query(
+          `SELECT u.email, u.name 
+           FROM users u 
+           WHERE u.engineer_name = $1 AND u.role = 'engineer' AND u.email IS NOT NULL 
+           LIMIT 1`,
+          [engineer]
+        );
+        
+        if (engineerResult.rows.length > 0) {
+          const engineerEmail = engineerResult.rows[0].email;
+          const engineerName = engineerResult.rows[0].name || engineer;
+          const assignedBy = req.user.name || (req.user.role === 'admin' ? 'Administrator' : 'Director');
+          const portalUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+          
+          await sendTaskAssignedEmail({
+            engineerName,
+            engineerEmail,
+            taskDetails: {
+              service,
+              week,
+              month,
+              year,
+              status,
+              priority,
+              description: taskDescription || undefined,
+            },
+            assignedBy,
+            portalUrl,
+          });
+        }
+      } catch (emailError) {
+        // Log error but don't fail the task update
+        console.error('Error sending task assignment email:', emailError);
+      }
+    }
     
     res.json(result.rows[0]);
   } catch (error) {

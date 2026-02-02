@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import TaskModal from './TaskModal';
 import AboutModal from './AboutModal';
 import ImportModal from './ImportModal';
+import UndoImport from './UndoImport';
 import { Plus, LogOut, Users, CheckCircle, Clock, Circle, Trash2, ChevronDown, ChevronRight, Menu, X, User, Info, Upload, FileSpreadsheet, Download } from 'lucide-react';
 
 export default function EngineerDashboard() {
@@ -71,6 +72,21 @@ export default function EngineerDashboard() {
       isMounted = false;
     };
   }, [user?.engineerName]); // Only reload when engineerName changes
+
+  const loadTasks = async () => {
+    if (!user?.engineerName) return;
+    
+    try {
+      const [tasksData, servicesData] = await Promise.all([
+        api.getTasks(),
+        api.getServices(),
+      ]);
+      setTasks(tasksData);
+      setServices(servicesData);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    }
+  };
 
   // Close menus when clicking outside
   useEffect(() => {
@@ -864,6 +880,9 @@ export default function EngineerDashboard() {
               </div>
             </div>
           </div>
+
+          {/* Undo Import */}
+          <UndoImport onUndoComplete={loadTasks} />
 
           {/* Year Summary */}
           <div className="bg-main rounded-lg shadow-lg p-6 mb-6 text-white">

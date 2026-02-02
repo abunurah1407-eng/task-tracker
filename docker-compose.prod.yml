@@ -1,9 +1,10 @@
 services:
   # Database Init Container - Copies SQL files from backend image
+  # Note: seed.sql is NOT copied to prevent seed data from running in production
   db-init:
     image: ${DOCKER_HUB_USERNAME:-abunurah1407}/task-tracker-backend:${IMAGE_TAG:-latest}
     container_name: task-tracker-db-init
-    command: sh -c "cp /app/db/schema.sql /shared/01-schema.sql && cp /app/db/seed.sql /shared/02-seed.sql && echo 'SQL files copied successfully'"
+    command: sh -c "cp /app/db/schema.sql /shared/01-schema.sql && echo 'Schema file copied successfully (seed.sql excluded from production)'"
     volumes:
       - db_init_scripts:/shared
     networks:

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ShieldCheck, Users, Zap, CheckCircle2, BarChart3, Target, ArrowRight, Sparkles } from 'lucide-react';
 import etecLogoUrl from '/etec-logo.svg';
@@ -711,6 +712,14 @@ export default function LandingPage() {
                 </>
               )}
             </button>
+            <div className="text-center mt-4">
+              <Link
+                to="/forgot-password"
+                className="text-sm text-gray-600 hover:text-main transition-colors"
+              >
+                Forgot your password?
+              </Link>
+            </div>
           </form>
         </div>
         </div>

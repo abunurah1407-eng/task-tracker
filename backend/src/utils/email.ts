@@ -1,5 +1,19 @@
 import nodemailer from 'nodemailer';
 
+/**
+ * Ensure URL uses HTTPS in production (for non-localhost domains)
+ * @param url - URL string
+ * @returns URL with HTTPS if in production, otherwise unchanged
+ */
+const ensureHttpsInProduction = (url: string): string => {
+  // Keep localhost as http for development
+  if (url.includes('localhost') || url.includes('127.0.0.1')) {
+    return url;
+  }
+  // Replace http:// with https:// for production domains
+  return url.replace(/^http:\/\//, 'https://');
+};
+
 interface Task {
   id: number;
   service: string;
@@ -71,6 +85,29 @@ export interface InvitationEmailData {
   expiresAt: Date;
 }
 
+export interface PasswordResetEmailData {
+  userName: string;
+  userEmail: string;
+  resetLink: string;
+  expiresAt: Date;
+}
+
+export interface TaskAssignedEmailData {
+  engineerName: string;
+  engineerEmail: string;
+  taskDetails: {
+    service: string;
+    week: number;
+    month: string;
+    year: number;
+    status: string;
+    priority: string;
+    description?: string;
+  };
+  assignedBy: string;
+  portalUrl: string;
+}
+
 export const sendFollowUpEmail = async (data: FollowUpEmailData): Promise<boolean> => {
   try {
     // If no SMTP credentials are configured, log the email instead
@@ -92,7 +129,7 @@ export const sendFollowUpEmail = async (data: FollowUpEmailData): Promise<boolea
     const mailOptions = {
       from: process.env.SMTP_FROM || process.env.SMTP_USER,
       to: data.engineerEmail,
-      subject: 'Task Follow-up: Pending and In-Progress Tasks',
+      subject: 'تذكير متابعة المهام',
       html: generateEmailBody(data),
     };
 
@@ -116,10 +153,11 @@ export const sendInvitationEmail = async (data: InvitationEmailData): Promise<bo
       console.log('\n========================================================');
       console.log('=== INVITATION EMAIL (SMTP not configured - would send) ===');
       console.log(`To: ${data.engineerEmail}`);
-      console.log(`Subject: Task Tracker - Account Invitation`);
+      console.log(`Subject: دعوة للانضمام إلى نظام إدارة المهام`);
       console.log(`Engineer: ${data.engineerName}`);
       console.log(`Invitation Link: ${data.invitationLink}`);
-      console.log(`Expires: ${data.expiresAt.toLocaleString()}`);
+      const { formatDateTimeSA } = require('./date');
+      console.log(`Expires: ${formatDateTimeSA(data.expiresAt).dateTime}`);
       console.log('========================================================\n');
       console.warn('[Email] SMTP not configured. Missing:', {
         SMTP_HOST: !smtpHost ? 'MISSING' : 'OK',
@@ -144,7 +182,7 @@ export const sendInvitationEmail = async (data: InvitationEmailData): Promise<bo
     const mailOptions = {
       from: process.env.SMTP_FROM || process.env.SMTP_USER,
       to: data.engineerEmail,
-      subject: 'Task Tracker - Account Invitation',
+      subject: 'دعوة للانضمام إلى نظام إدارة المهام',
       html: generateInvitationEmailBody(data),
     };
 
@@ -170,41 +208,44 @@ const generateEmailBody = (data: FollowUpEmailData): string => {
   const inProgressCount = data.inProgressTasks.length;
   const totalCount = pendingCount + inProgressCount;
 
-  // Outlook-compatible email using table-based layout
+  // Outlook-compatible email using table-based layout with Arabic text
   const html = `
     <!DOCTYPE html>
-    <html>
+    <html dir="rtl" lang="ar">
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
     </head>
-    <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+    <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4; direction: rtl;">
       <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f4f4f4; padding: 20px 0;">
         <tr>
           <td align="center">
             <table width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; max-width: 600px;">
               <!-- Header -->
               <tr>
-                <td style="background-color: #667eea; padding: 30px 20px; color: #ffffff;">
-                  <h1 style="margin: 0; padding: 0; font-size: 24px; font-weight: bold; color: #ffffff;">Task Follow-up Reminder</h1>
-                  <p style="margin: 10px 0 0 0; padding: 0; font-size: 16px; color: #ffffff;">Dear ${escapeHtml(data.engineerName)},</p>
+                <td style="background-color: #667eea; padding: 30px 20px; color: #ffffff; text-align: center;">
+                  <h1 style="margin: 0; padding: 0; font-size: 24px; font-weight: bold; color: #ffffff;">تذكير متابعة المهام</h1>
+                  <p style="margin: 10px 0 0 0; padding: 0; font-size: 16px; color: #ffffff;">عزيزي/عزيزتي ${escapeHtml(data.engineerName)}،</p>
                 </td>
               </tr>
               <!-- Content -->
               <tr>
                 <td style="padding: 30px 20px; background-color: #ffffff;">
-                  <p style="margin: 0 0 20px 0; padding: 0; font-size: 14px; line-height: 1.6; color: #333333;">
-                    This is a follow-up reminder regarding your pending and in-progress tasks. Please review and update the status of your tasks as needed.
+                  <p style="margin: 0 0 20px 0; padding: 0; font-size: 16px; line-height: 1.8; color: #333333;">
+                    هذا تذكير متابعة بخصوص مهامك المعلقة والمهام قيد التنفيذ. يرجى مراجعة وتحديث حالة مهامك حسب الحاجة.
                   </p>
-                  
-                  <!-- Summary Table -->
-                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f9fafb; border: 1px solid #e5e7eb; margin-bottom: 20px;">
+                </td>
+              </tr>
+              <!-- Summary Table -->
+              <tr>
+                <td style="padding: 0 20px; background-color: #ffffff;">
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f9fafb; border: 1px solid #e5e7eb;">
                     <tr>
                       <td style="padding: 15px 20px; border-bottom: 1px solid #e5e7eb;">
                         <table width="100%" cellpadding="0" cellspacing="0" border="0">
                           <tr>
-                            <td style="font-size: 14px; color: #333333; font-weight: bold;">Total Tasks Requiring Attention:</td>
-                            <td align="right" style="font-size: 14px; color: #333333; font-weight: bold;">${totalCount}</td>
+                            <td style="font-size: 16px; color: #333333; font-weight: bold;">إجمالي المهام التي تحتاج إلى متابعة:</td>
+                            <td align="left" style="font-size: 16px; color: #333333; font-weight: bold;">${totalCount}</td>
                           </tr>
                         </table>
                       </td>
@@ -213,8 +254,8 @@ const generateEmailBody = (data: FollowUpEmailData): string => {
                       <td style="padding: 15px 20px; border-bottom: 1px solid #e5e7eb;">
                         <table width="100%" cellpadding="0" cellspacing="0" border="0">
                           <tr>
-                            <td style="font-size: 14px; color: #333333;">Pending Tasks:</td>
-                            <td align="right" style="font-size: 14px; color: #333333; font-weight: bold;">${pendingCount}</td>
+                            <td style="font-size: 16px; color: #333333;">المهام المعلقة:</td>
+                            <td align="left" style="font-size: 16px; color: #333333; font-weight: bold;">${pendingCount}</td>
                           </tr>
                         </table>
                       </td>
@@ -223,21 +264,26 @@ const generateEmailBody = (data: FollowUpEmailData): string => {
                       <td style="padding: 15px 20px;">
                         <table width="100%" cellpadding="0" cellspacing="0" border="0">
                           <tr>
-                            <td style="font-size: 14px; color: #333333;">In Progress Tasks:</td>
-                            <td align="right" style="font-size: 14px; color: #333333; font-weight: bold;">${inProgressCount}</td>
+                            <td style="font-size: 16px; color: #333333;">المهام قيد التنفيذ:</td>
+                            <td align="left" style="font-size: 16px; color: #333333; font-weight: bold;">${inProgressCount}</td>
                           </tr>
                         </table>
                       </td>
                     </tr>
                   </table>
-                  
-                  <!-- Note Box -->
-                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #eff6ff; border-left: 4px solid #3b82f6; margin-top: 20px;">
+                </td>
+              </tr>
+              <!-- Spacer Row -->
+              <tr><td style="height: 20px; line-height: 20px; font-size: 1px;">&nbsp;</td></tr>
+              <!-- Note Box -->
+              <tr>
+                <td style="padding: 0 20px; background-color: #ffffff;">
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #eff6ff;">
                     <tr>
                       <td style="padding: 15px 20px;">
-                        <p style="margin: 0; padding: 0; font-size: 14px; line-height: 1.6; color: #333333;">
-                          <strong>Note:</strong> You have ${totalCount} task${totalCount !== 1 ? 's' : ''} requiring your attention. 
-                          ${totalCount > 0 ? 'Please log in to the Task Tracker system to view and update your tasks.' : ''}
+                        <p style="margin: 0; padding: 0; font-size: 16px; line-height: 1.8; color: #333333;">
+                          <strong>ملاحظة:</strong> لديك ${totalCount} ${totalCount === 1 ? 'مهمة' : 'مهام'} تحتاج إلى متابعة. 
+                          ${totalCount > 0 ? 'يرجى تسجيل الدخول إلى نظام إدارة المهام لعرض وتحديث مهامك.' : ''}
                         </p>
                       </td>
                     </tr>
@@ -248,10 +294,10 @@ const generateEmailBody = (data: FollowUpEmailData): string => {
               <tr>
                 <td style="padding: 20px; background-color: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
                   <p style="margin: 0 0 10px 0; padding: 0; font-size: 12px; line-height: 1.6; color: #6b7280;">
-                    Please log in to the Task Tracker system to update your task status.
+                    يرجى تسجيل الدخول إلى نظام إدارة المهام لتحديث حالة مهامك.
                   </p>
                   <p style="margin: 0; padding: 0; font-size: 12px; line-height: 1.6; color: #6b7280;">
-                    This is an automated reminder. If you have any questions, please contact your director.
+                    هذا تذكير تلقائي. إذا كان لديك أي أسئلة، يرجى الاتصال بمديرك.
                   </p>
                 </td>
               </tr>
@@ -266,83 +312,144 @@ const generateEmailBody = (data: FollowUpEmailData): string => {
   return html;
 };
 
-const generateInvitationEmailBody = (data: InvitationEmailData): string => {
-  const expiresDate = data.expiresAt.toLocaleDateString();
-  const expiresTime = data.expiresAt.toLocaleTimeString();
+export const sendPasswordResetEmail = async (data: PasswordResetEmailData): Promise<boolean> => {
+  try {
+    // Check if SMTP is properly configured
+    const smtpHost = process.env.SMTP_HOST || '';
+    const smtpUser = process.env.SMTP_USER || '';
+    const smtpPass = process.env.SMTP_PASS || '';
+    
+    if (!smtpHost || !smtpUser || !smtpPass) {
+      console.log('\n========================================================');
+      console.log('=== PASSWORD RESET EMAIL (SMTP not configured - would send) ===');
+      console.log(`To: ${data.userEmail}`);
+      console.log(`Subject: إعادة تعيين كلمة المرور`);
+      console.log(`User: ${data.userName}`);
+      console.log(`Reset Link: ${data.resetLink}`);
+      const { formatDateTimeSA } = require('./date');
+      console.log(`Expires: ${formatDateTimeSA(data.expiresAt).dateTime}`);
+      console.log('========================================================\n');
+      console.warn('[Email] SMTP not configured. Missing:', {
+        SMTP_HOST: !smtpHost ? 'MISSING' : 'OK',
+        SMTP_USER: !smtpUser ? 'MISSING' : 'OK',
+        SMTP_PASS: !smtpPass ? 'MISSING' : 'OK',
+      });
+      return false; // Return false to indicate email was not sent
+    }
+
+    const transporter = createTransporter();
+
+    // Try to verify connection (skip if fails, but log)
+    try {
+      await transporter.verify();
+      console.log('[Email] SMTP connection verified successfully');
+    } catch (verifyError: any) {
+      const errorMessage = verifyError.message || '';
+      console.log('[Email] SMTP verification failed (this is OK for plain connections):', errorMessage);
+      console.log('[Email] Proceeding with email send anyway...');
+    }
+
+    const mailOptions = {
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: data.userEmail,
+      subject: 'إعادة تعيين كلمة المرور',
+      html: generatePasswordResetEmailBody(data),
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`[Email] Password reset email sent successfully to ${data.userEmail}`, {
+      messageId: info.messageId,
+      response: info.response,
+    });
+    return true;
+  } catch (error: any) {
+    console.error('[Email] Error sending password reset email:', {
+      error: error.message,
+      code: error.code,
+      command: error.command,
+      stack: error.stack,
+    });
+    return false;
+  }
+};
+
+const generatePasswordResetEmailBody = (data: PasswordResetEmailData): string => {
+  const { formatDateSA, formatTimeSA } = require('./date');
+  const expiresDate = formatDateSA(data.expiresAt);
+  const expiresTime = formatTimeSA(data.expiresAt);
   
-  // Outlook-compatible email using table-based layout
+  // Outlook-compatible email using table-based layout with Arabic text
   return `
     <!DOCTYPE html>
-    <html>
+    <html dir="rtl" lang="ar">
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
     </head>
-    <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+    <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4; direction: rtl;">
       <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f4f4f4; padding: 20px 0;">
         <tr>
           <td align="center">
             <table width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; max-width: 600px;">
               <!-- Header -->
               <tr>
-                <td style="background-color: #667eea; padding: 30px 20px; color: #ffffff; text-align: center;">
-                  <h1 style="margin: 0; padding: 0; font-size: 24px; font-weight: bold; color: #ffffff;">Task Tracker - Account Invitation</h1>
+                <td style="background-color: #5c7cfa; padding: 30px 20px; color: #ffffff; text-align: center;">
+                  <h1 style="margin: 0; padding: 0; font-size: 24px; font-weight: bold; color: #ffffff;">إعادة تعيين كلمة المرور</h1>
                 </td>
               </tr>
               <!-- Content -->
               <tr>
                 <td style="padding: 30px 20px; background-color: #ffffff;">
-                  <p style="margin: 0 0 15px 0; padding: 0; font-size: 14px; line-height: 1.6; color: #333333;">
-                    Dear ${escapeHtml(data.engineerName)},
+                  <p style="margin: 0 0 15px 0; padding: 0; font-size: 16px; line-height: 1.8; color: #333333;">
+                    عزيزي/عزيزتي ${escapeHtml(data.userName)}،
                   </p>
-                  <p style="margin: 0 0 25px 0; padding: 0; font-size: 14px; line-height: 1.6; color: #333333;">
-                    You have been invited to join the Task Tracker system. Please click the button below to set up your account and create your password.
+                  <p style="margin: 0 0 25px 0; padding: 0; font-size: 16px; line-height: 1.8; color: #333333;">
+                    لقد تلقينا طلبًا لإعادة تعيين كلمة المرور لحسابك في نظام إدارة المهام. يرجى النقر على الزر أدناه لإعادة تعيين كلمة المرور.
                   </p>
-                  
-                  <!-- Button -->
-                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 25px 0;">
+                </td>
+              </tr>
+              <!-- Spacer Row -->
+              <tr><td style="height: 25px; line-height: 25px; font-size: 1px;">&nbsp;</td></tr>
+              <!-- Button -->
+              <tr>
+                <td style="padding: 0 20px; background-color: #ffffff;" align="center">
+                  <table cellpadding="0" cellspacing="0" border="0">
                     <tr>
-                      <td align="center">
-                        <table cellpadding="0" cellspacing="0" border="0">
-                          <tr>
-                            <td style="background-color: #667eea; padding: 12px 30px; border-radius: 5px;">
-                              <a href="${data.invitationLink}" style="display: inline-block; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: bold;">Accept Invitation & Set Password</a>
-                            </td>
-                          </tr>
-                        </table>
+                      <td style="background-color: #5c7cfa; padding: 12px 30px; border-radius: 5px;">
+                        <a href="${data.resetLink}" style="display: inline-block; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: bold;">إعادة تعيين كلمة المرور</a>
                       </td>
                     </tr>
                   </table>
-                  
-                  <!-- Info Box -->
-                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; border-left: 4px solid #667eea; margin: 25px 0;">
+                </td>
+              </tr>
+              <!-- Spacer Row -->
+              <tr><td style="height: 25px; line-height: 25px; font-size: 1px;">&nbsp;</td></tr>
+              <!-- Info Box -->
+              <tr>
+                <td style="padding: 0 20px; background-color: #ffffff;">
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff;">
                     <tr>
                       <td style="padding: 15px 20px; background-color: #f9fafb;">
-                        <p style="margin: 0 0 10px 0; padding: 0; font-size: 14px; font-weight: bold; color: #333333;">Important Information:</p>
-                        <ul style="margin: 0 0 10px 0; padding-left: 20px; font-size: 14px; line-height: 1.8; color: #333333;">
-                          <li>This invitation link will expire on <strong>${expiresDate} at ${expiresTime}</strong></li>
-                          <li>If the button doesn't work, copy and paste this link into your browser:</li>
+                        <p style="margin: 0 0 10px 0; padding: 0; font-size: 16px; font-weight: bold; color: #333333;">معلومات مهمة:</p>
+                        <ul style="margin: 0 0 10px 0; padding-right: 20px; font-size: 16px; line-height: 1.8; color: #333333;">
+                          <li>ستنتهي صلاحية رابط إعادة تعيين كلمة المرور في <strong>${expiresDate} الساعة ${expiresTime}</strong></li>
+                          <li>إذا لم تطلب إعادة تعيين كلمة المرور، يرجى تجاهل هذا البريد الإلكتروني</li>
+                          <li>إذا لم يعمل الزر، يرجى نسخ ولصق هذا الرابط في المتصفح:</li>
                         </ul>
-                        <p style="margin: 0; padding: 10px; background-color: #ffffff; word-break: break-all; font-size: 12px; color: #667eea; border: 1px solid #e5e7eb;">
-                          ${data.invitationLink}
+                        <p style="margin: 0; padding: 10px; background-color: #ffffff; word-break: break-all; font-size: 12px; color: #5c7cfa; border: 1px solid #e5e7eb;">
+                          ${data.resetLink}
                         </p>
                       </td>
                     </tr>
                   </table>
-                  
-                  <!-- Access Note -->
-                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #fef3c7; border-left: 4px solid #f59e0b; margin: 25px 0;">
-                    <tr>
-                      <td style="padding: 15px 20px;">
-                        <p style="margin: 0; padding: 0; font-size: 14px; line-height: 1.6; color: #333333;">
-                          <strong>⚠️ Access Note:</strong> This application is accessible from <strong>Tower jump server - CS only</strong>.
-                        </p>
-                      </td>
-                    </tr>
-                  </table>
-                  
-                  <p style="margin: 20px 0 0 0; padding: 0; font-size: 14px; line-height: 1.6; color: #333333;">
-                    If you did not expect this invitation, please ignore this email or contact your administrator.
+                </td>
+              </tr>
+              <!-- Spacer Row -->
+              <tr><td style="height: 20px; line-height: 20px; font-size: 1px;">&nbsp;</td></tr>
+              <tr>
+                <td style="padding: 0 20px 30px 20px; background-color: #ffffff;">
+                  <p style="margin: 0; padding: 0; font-size: 16px; line-height: 1.8; color: #333333;">
+                    لأسباب أمنية، إذا لم تطلب إعادة تعيين كلمة المرور، يرجى الاتصال بالمسؤول فورًا.
                   </p>
                 </td>
               </tr>
@@ -350,10 +457,315 @@ const generateInvitationEmailBody = (data: InvitationEmailData): string => {
               <tr>
                 <td style="padding: 20px; background-color: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
                   <p style="margin: 0 0 10px 0; padding: 0; font-size: 12px; line-height: 1.6; color: #6b7280;">
-                    This is an automated email from the Task Tracker system.
+                    هذا بريد إلكتروني تلقائي من نظام إدارة المهام.
                   </p>
                   <p style="margin: 0; padding: 0; font-size: 12px; line-height: 1.6; color: #6b7280;">
-                    Please do not reply to this email.
+                    يرجى عدم الرد على هذا البريد الإلكتروني.
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `;
+};
+
+export const sendTaskAssignedEmail = async (data: TaskAssignedEmailData): Promise<boolean> => {
+  try {
+    // Check if SMTP is properly configured
+    const smtpHost = process.env.SMTP_HOST || '';
+    const smtpUser = process.env.SMTP_USER || '';
+    const smtpPass = process.env.SMTP_PASS || '';
+    
+    if (!smtpHost || !smtpUser || !smtpPass) {
+      console.log('\n========================================================');
+      console.log('=== TASK ASSIGNED EMAIL (SMTP not configured - would send) ===');
+      console.log(`To: ${data.engineerEmail}`);
+      console.log(`Subject: تم تعيين مهمة جديدة - ${data.taskDetails.service}`);
+      console.log(`Engineer: ${data.engineerName}`);
+      console.log(`Task: ${data.taskDetails.service} - Week ${data.taskDetails.week}, ${data.taskDetails.month} ${data.taskDetails.year}`);
+      console.log(`Assigned by: ${data.assignedBy}`);
+      console.log('========================================================\n');
+      console.warn('[Email] SMTP not configured. Missing:', {
+        SMTP_HOST: !smtpHost ? 'MISSING' : 'OK',
+        SMTP_USER: !smtpUser ? 'MISSING' : 'OK',
+        SMTP_PASS: !smtpPass ? 'MISSING' : 'OK',
+      });
+      return false;
+    }
+
+    const transporter = createTransporter();
+
+    // Try to verify connection (skip if fails, but log)
+    try {
+      await transporter.verify();
+      console.log('[Email] SMTP connection verified successfully');
+    } catch (verifyError: any) {
+      const errorMessage = verifyError.message || '';
+      console.log('[Email] SMTP verification failed (this is OK for plain connections):', errorMessage);
+      console.log('[Email] Proceeding with email send anyway...');
+    }
+
+    const mailOptions = {
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: data.engineerEmail,
+      subject: `تم تعيين مهمة جديدة - ${data.taskDetails.service}`,
+      html: generateTaskAssignedEmailBody(data),
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`[Email] Task assigned email sent successfully to ${data.engineerEmail}`, {
+      messageId: info.messageId,
+      response: info.response,
+    });
+    return true;
+  } catch (error: any) {
+    console.error('[Email] Error sending task assigned email:', {
+      error: error.message,
+      code: error.code,
+      command: error.command,
+      stack: error.stack,
+    });
+    return false;
+  }
+};
+
+const generateTaskAssignedEmailBody = (data: TaskAssignedEmailData): string => {
+  const priorityColors: Record<string, string> = {
+    high: '#ef4444',
+    medium: '#f59e0b',
+    low: '#10b981',
+  };
+  
+  const priorityLabels: Record<string, string> = {
+    high: 'عالية',
+    medium: 'متوسطة',
+    low: 'منخفضة',
+  };
+  
+  const statusLabels: Record<string, string> = {
+    pending: 'معلقة',
+    'in-progress': 'قيد التنفيذ',
+    completed: 'مكتملة',
+  };
+  
+  const priorityColor = priorityColors[data.taskDetails.priority] || '#6b7280';
+  const priorityLabel = priorityLabels[data.taskDetails.priority] || data.taskDetails.priority;
+  const statusLabel = statusLabels[data.taskDetails.status] || data.taskDetails.status;
+  
+  const portalUrl = ensureHttpsInProduction(data.portalUrl);
+  
+  return `
+    <!DOCTYPE html>
+    <html dir="rtl" lang="ar">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4; direction: rtl;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f4f4f4; padding: 20px 0;">
+        <tr>
+          <td align="center">
+            <table width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; max-width: 600px;">
+              <!-- Header -->
+              <tr>
+                <td style="background-color: #5c7cfa; padding: 30px 20px; color: #ffffff; text-align: center;">
+                  <h1 style="margin: 0; padding: 0; font-size: 24px; font-weight: bold; color: #ffffff;">تم تعيين مهمة جديدة</h1>
+                </td>
+              </tr>
+              <!-- Content -->
+              <tr>
+                <td style="padding: 30px 20px; background-color: #ffffff;">
+                  <p style="margin: 0 0 15px 0; padding: 0; font-size: 16px; line-height: 1.8; color: #333333;">
+                    عزيزي/عزيزتي ${escapeHtml(data.engineerName)}،
+                  </p>
+                  <p style="margin: 0 0 25px 0; padding: 0; font-size: 16px; line-height: 1.8; color: #333333;">
+                    تم تعيين مهمة جديدة لك من قبل <strong>${escapeHtml(data.assignedBy)}</strong>. يرجى مراجعة تفاصيل المهمة أدناه.
+                  </p>
+                </td>
+              </tr>
+              <!-- Spacer Row -->
+              <tr><td style="height: 25px; line-height: 25px; font-size: 1px;">&nbsp;</td></tr>
+              <!-- Task Details Box -->
+              <tr>
+                <td style="padding: 0 20px; background-color: #ffffff;">
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f9fafb; border: 2px solid #e5e7eb; border-radius: 8px;">
+                    <tr>
+                      <td style="padding: 20px;">
+                        <h2 style="margin: 0 0 15px 0; padding: 0; font-size: 18px; font-weight: bold; color: #333333;">تفاصيل المهمة</h2>
+                        
+                        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                          <tr>
+                            <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">
+                              <strong style="color: #6b7280; font-size: 16px;">الخدمة:</strong>
+                              <span style="color: #333333; font-size: 16px; margin-right: 10px;">${escapeHtml(data.taskDetails.service)}</span>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">
+                              <strong style="color: #6b7280; font-size: 16px;">الفترة:</strong>
+                              <span style="color: #333333; font-size: 16px; margin-right: 10px;">الأسبوع ${data.taskDetails.week}، ${escapeHtml(data.taskDetails.month)} ${data.taskDetails.year}</span>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">
+                              <strong style="color: #6b7280; font-size: 16px;">الحالة:</strong>
+                              <span style="color: #333333; font-size: 16px; margin-right: 10px;">${escapeHtml(statusLabel)}</span>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">
+                              <strong style="color: #6b7280; font-size: 16px;">الأولوية:</strong>
+                              <span style="color: ${priorityColor}; font-size: 16px; font-weight: bold; margin-right: 10px;">${escapeHtml(priorityLabel)}</span>
+                            </td>
+                          </tr>
+                          ${data.taskDetails.description ? `
+                          <tr>
+                            <td style="padding: 8px 0;">
+                              <strong style="color: #6b7280; font-size: 16px;">الوصف:</strong>
+                              <p style="color: #333333; font-size: 16px; margin: 5px 0 0 0; line-height: 1.8;">${escapeHtml(data.taskDetails.description)}</p>
+                            </td>
+                          </tr>
+                          ` : ''}
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <!-- Spacer Row -->
+              <tr><td style="height: 25px; line-height: 25px; font-size: 1px;">&nbsp;</td></tr>
+              <!-- Button -->
+              <tr>
+                <td style="padding: 0 20px; background-color: #ffffff;" align="center">
+                  <table cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                      <td style="background-color: #5c7cfa; padding: 12px 30px; border-radius: 5px;">
+                        <a href="${portalUrl}" style="display: inline-block; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: bold;">عرض المهمة في لوحة التحكم</a>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <!-- Spacer Row -->
+              <tr><td style="height: 20px; line-height: 20px; font-size: 1px;">&nbsp;</td></tr>
+              <tr>
+                <td style="padding: 0 20px 30px 20px; background-color: #ffffff;">
+                  <p style="margin: 0; padding: 0; font-size: 16px; line-height: 1.8; color: #333333;">
+                    يرجى تسجيل الدخول إلى نظام إدارة المهام لعرض وتحديث هذه المهمة.
+                  </p>
+                </td>
+              </tr>
+              <!-- Footer -->
+              <tr>
+                <td style="padding: 20px; background-color: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
+                  <p style="margin: 0 0 10px 0; padding: 0; font-size: 12px; line-height: 1.6; color: #6b7280;">
+                    هذا بريد إلكتروني تلقائي من نظام إدارة المهام.
+                  </p>
+                  <p style="margin: 0; padding: 0; font-size: 12px; line-height: 1.6; color: #6b7280;">
+                    يرجى عدم الرد على هذا البريد الإلكتروني.
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `;
+};
+
+const generateInvitationEmailBody = (data: InvitationEmailData): string => {
+  const { formatDateSA, formatTimeSA } = require('./date');
+  const expiresDate = formatDateSA(data.expiresAt);
+  const expiresTime = formatTimeSA(data.expiresAt);
+  
+  // Outlook-compatible email using table-based layout with Arabic text
+  return `
+    <!DOCTYPE html>
+    <html dir="rtl" lang="ar">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4; direction: rtl;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f4f4f4; padding: 20px 0;">
+        <tr>
+          <td align="center">
+            <table width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; max-width: 600px;">
+              <!-- Header -->
+              <tr>
+                <td style="background-color: #667eea; padding: 30px 20px; color: #ffffff; text-align: center;">
+                  <h1 style="margin: 0; padding: 0; font-size: 24px; font-weight: bold; color: #ffffff;">دعوة للانضمام إلى نظام إدارة المهام</h1>
+                </td>
+              </tr>
+              <!-- Content -->
+              <tr>
+                <td style="padding: 30px 20px; background-color: #ffffff;">
+                  <p style="margin: 0 0 15px 0; padding: 0; font-size: 16px; line-height: 1.8; color: #333333;">
+                    عزيزي/عزيزتي ${escapeHtml(data.engineerName)}،
+                  </p>
+                  <p style="margin: 0 0 25px 0; padding: 0; font-size: 16px; line-height: 1.8; color: #333333;">
+                    لقد تمت دعوتك للانضمام إلى نظام إدارة المهام. يرجى النقر على الزر أدناه لإعداد حسابك وإنشاء كلمة المرور.
+                  </p>
+                </td>
+              </tr>
+              <!-- Spacer Row -->
+              <tr><td style="height: 25px; line-height: 25px; font-size: 1px;">&nbsp;</td></tr>
+              <!-- Button -->
+              <tr>
+                <td style="padding: 0 20px; background-color: #ffffff;" align="center">
+                  <table cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                      <td style="background-color: #667eea; padding: 12px 30px; border-radius: 5px;">
+                        <a href="${data.invitationLink}" style="display: inline-block; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: bold;">قبول الدعوة وإنشاء كلمة المرور</a>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <!-- Spacer Row -->
+              <tr><td style="height: 25px; line-height: 25px; font-size: 1px;">&nbsp;</td></tr>
+              <!-- Info Box -->
+              <tr>
+                <td style="padding: 0 20px; background-color: #ffffff;">
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff;">
+                    <tr>
+                      <td style="padding: 15px 20px; background-color: #f9fafb;">
+                        <p style="margin: 0 0 10px 0; padding: 0; font-size: 16px; font-weight: bold; color: #333333;">معلومات مهمة:</p>
+                        <ul style="margin: 0 0 10px 0; padding-right: 20px; font-size: 16px; line-height: 1.8; color: #333333;">
+                          <li>ستنتهي صلاحية رابط الدعوة في <strong>${expiresDate} الساعة ${expiresTime}</strong></li>
+                          <li>إذا لم يعمل الزر، يرجى نسخ ولصق هذا الرابط في المتصفح:</li>
+                        </ul>
+                        <p style="margin: 0; padding: 10px; background-color: #ffffff; word-break: break-all; font-size: 12px; color: #667eea; border: 1px solid #e5e7eb;">
+                          ${data.invitationLink}
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <!-- Spacer Row -->
+              <tr><td style="height: 20px; line-height: 20px; font-size: 1px;">&nbsp;</td></tr>
+              <tr>
+                <td style="padding: 0 20px 30px 20px; background-color: #ffffff;">
+                  <p style="margin: 0; padding: 0; font-size: 16px; line-height: 1.8; color: #333333;">
+                    إذا لم تتوقع هذه الدعوة، يرجى تجاهل هذا البريد الإلكتروني أو الاتصال بالمسؤول.
+                  </p>
+                </td>
+              </tr>
+              <!-- Footer -->
+              <tr>
+                <td style="padding: 20px; background-color: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
+                  <p style="margin: 0 0 10px 0; padding: 0; font-size: 12px; line-height: 1.6; color: #6b7280;">
+                    هذا بريد إلكتروني تلقائي من نظام إدارة المهام.
+                  </p>
+                  <p style="margin: 0; padding: 0; font-size: 12px; line-height: 1.6; color: #6b7280;">
+                    يرجى عدم الرد على هذا البريد الإلكتروني.
                   </p>
                 </td>
               </tr>
@@ -465,7 +877,7 @@ export const sendWeeklyReminderEmail = async (data: WeeklyReminderEmailData): Pr
 };
 
 const generateWeeklyReminderEmailBody = (data: WeeklyReminderEmailData): string => {
-  const portalUrl = data.portalUrl || process.env.FRONTEND_URL || 'http://localhost:5173';
+  const portalUrl = ensureHttpsInProduction(data.portalUrl || process.env.FRONTEND_URL || 'http://localhost:5173');
   
   // Outlook-compatible email using table-based layout with Arabic text
   return `
@@ -504,50 +916,42 @@ const generateWeeklyReminderEmailBody = (data: WeeklyReminderEmailData): string 
                   <p style="margin: 10px 0 0 0; padding: 0; font-size: 16px; line-height: 1.8; color: #333333;">
                     يوم سعيد
                   </p>
-                  
-                  <!-- Portal Link -->
-                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 30px 0;">
+                </td>
+              </tr>
+              <!-- Spacer Row -->
+              <tr><td style="height: 30px; line-height: 30px; font-size: 1px;">&nbsp;</td></tr>
+              <!-- Portal Link -->
+              <tr>
+                <td style="padding: 0 20px; background-color: #ffffff;" align="center">
+                  <table cellpadding="0" cellspacing="0" border="0">
                     <tr>
-                      <td align="center">
-                        <table cellpadding="0" cellspacing="0" border="0">
-                          <tr>
-                            <td style="background-color: #667eea; padding: 12px 30px; border-radius: 5px;">
-                              <a href="${portalUrl}" style="display: inline-block; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: bold;">الوصول إلى نظام إدارة المهام</a>
-                            </td>
-                          </tr>
-                        </table>
+                      <td style="background-color: #667eea; padding: 12px 30px; border-radius: 5px;">
+                        <a href="${portalUrl}" style="display: inline-block; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: bold;">الوصول إلى نظام إدارة المهام</a>
                       </td>
                     </tr>
                   </table>
-                  
-                  <p style="margin: 20px 0 0 0; padding: 0; font-size: 14px; line-height: 1.6; color: #6b7280; text-align: center;">
+                </td>
+              </tr>
+              <!-- Spacer Row -->
+              <tr><td style="height: 20px; line-height: 20px; font-size: 1px;">&nbsp;</td></tr>
+              <tr>
+                <td style="padding: 0 20px; background-color: #ffffff; text-align: center;">
+                  <p style="margin: 0; padding: 0; font-size: 14px; line-height: 1.6; color: #6b7280;">
                     رابط النظام: <a href="${portalUrl}" style="color: #667eea; text-decoration: none;">${portalUrl}</a>
                   </p>
-                  
-                  <!-- Access Note -->
-                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #fef3c7; border-left: 4px solid #f59e0b; margin: 25px 0;">
-                    <tr>
-                      <td style="padding: 15px 20px;">
-                        <p style="margin: 0; padding: 0; font-size: 14px; line-height: 1.6; color: #333333;">
-                          <strong>⚠️ Access Note:</strong> This application is accessible from <strong>Tower jump server - CS only</strong>.
-                        </p>
-                      </td>
-                    </tr>
-                  </table>
-                  
-                  <!-- Signature -->
-                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 40px 0 20px 0; padding: 20px 0; border-top: 1px solid #e5e7eb;">
-                    <tr>
-                      <td style="padding: 0; text-align: center;">
-                        <p style="margin: 0 0 5px 0; padding: 0; font-size: 16px; line-height: 1.8; color: #333333;">
-                          مدير إدارة عمليات الأمن السيبراني
-                        </p>
-                        <p style="margin: 0; padding: 0; font-size: 16px; line-height: 1.8; color: #333333;">
-                          المهندس / ناصر السليم
-                        </p>
-                      </td>
-                    </tr>
-                  </table>
+                </td>
+              </tr>
+              <!-- Spacer Row -->
+              <tr><td style="height: 40px; line-height: 40px; font-size: 1px;">&nbsp;</td></tr>
+              <!-- Signature -->
+              <tr>
+                <td style="padding: 20px; background-color: #ffffff; border-top: 1px solid #e5e7eb; text-align: center;">
+                  <p style="margin: 0 0 5px 0; padding: 0; font-size: 16px; line-height: 1.8; color: #333333;">
+                    مدير إدارة عمليات الأمن السيبراني
+                  </p>
+                  <p style="margin: 0; padding: 0; font-size: 16px; line-height: 1.8; color: #333333;">
+                    المهندس / ناصر السليم
+                  </p>
                 </td>
               </tr>
               <!-- Footer -->

@@ -192,6 +192,51 @@ class ApiService {
     });
   }
 
+  // User Management (Admin only - all users)
+  async getAllUsers() {
+    return this.request<any[]>('/users');
+  }
+
+  async getUser(id: string) {
+    return this.request<any>(`/users/${id}`);
+  }
+
+  async createUser(user: {
+    email: string;
+    name: string;
+    role: 'admin' | 'director' | 'engineer';
+    password?: string;
+    engineer_name?: string;
+    color?: string;
+    sendInvitation?: boolean;
+    confirm?: boolean;
+  }) {
+    return this.request<any>('/users', {
+      method: 'POST',
+      body: JSON.stringify(user),
+    });
+  }
+
+  async updateUser(id: string, user: {
+    email?: string;
+    name?: string;
+    role?: 'admin' | 'director' | 'engineer';
+    password?: string;
+    engineer_name?: string;
+    color?: string;
+  }) {
+    return this.request<any>(`/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(user),
+    });
+  }
+
+  async deleteUser(id: string) {
+    return this.request<{ message: string }>(`/users/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
   async createEngineerUser(user: { name: string; email: string; color: string; sendInvitation?: boolean; confirm?: boolean }) {
     return this.request<any>('/engineers/users', {
       method: 'POST',
@@ -236,6 +281,21 @@ class ApiService {
 
   async resetEngineerPassword(id: string, newPassword?: string) {
     return this.request<any>(`/engineers/users/${id}/reset-password`, {
+      method: 'POST',
+      body: JSON.stringify({ newPassword }),
+    });
+  }
+
+  // User invitation and password reset (for all user types)
+  async sendUserInvitation(id: string) {
+    return this.request<{ invitationLink: string; expiresAt: string; emailSent?: boolean; emailError?: string }>(`/users/${id}/invite`, {
+      method: 'POST',
+      body: JSON.stringify({ confirm: true }),
+    });
+  }
+
+  async resetUserPassword(id: string, newPassword?: string) {
+    return this.request<any>(`/users/${id}/reset-password`, {
       method: 'POST',
       body: JSON.stringify({ newPassword }),
     });
@@ -333,6 +393,19 @@ class ApiService {
     return response.json();
   }
 
+  async undoImport(taskIds: number[]) {
+    return this.request<{
+      success: boolean;
+      deleted: number;
+    }>('/import/undo', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ taskIds }),
+    });
+  }
+
   // Reminder settings
   async getReminderSettings() {
     return this.request<{
@@ -363,8 +436,17 @@ class ApiService {
   }
 
   async testReminderEmail() {
-    return this.request<{ message: string }>('/reminder/test', {
+    return this.request<any>('/reminder/test', {
       method: 'POST',
+      body: JSON.stringify({}),
+    });
+  }
+
+  // Test email templates (admin only)
+  async testEmailTemplate(template: 'invitation' | 'password-reset' | 'weekly-reminder' | 'follow-up' | 'task-assigned', testEmail: string) {
+    return this.request<{ success: boolean; message: string; template: string; invitationLink?: string; resetLink?: string }>('/email/test', {
+      method: 'POST',
+      body: JSON.stringify({ template, testEmail }),
     });
   }
 }
