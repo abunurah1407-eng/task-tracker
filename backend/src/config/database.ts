@@ -1,7 +1,8 @@
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
 
-dotenv.config();
+// Load .env file but don't override existing environment variables (from Docker)
+dotenv.config({ override: false });
 
 export const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',

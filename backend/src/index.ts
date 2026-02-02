@@ -13,10 +13,11 @@ import emailRoutes from './routes/email';
 import reminderRoutes from './routes/reminder';
 import userRoutes from './routes/users';
 
+// Load .env file but don't override existing environment variables (from Docker)
+dotenv.config({ override: false });
+
 // Initialize scheduler
 import './services/scheduler';
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;

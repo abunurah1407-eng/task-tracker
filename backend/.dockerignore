@@ -12,3 +12,4 @@ src/db/*.ts
 !src/db/schema.sql
 !src/db/seed.sql
 src/db/migration_*.sql
+!src/db/migration_production_complete.sql

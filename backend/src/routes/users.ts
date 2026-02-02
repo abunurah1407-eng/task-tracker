@@ -15,9 +15,9 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
     }
 
     const result = await pool.query(
-      `SELECT u.id, u.email, u.name, u.role, u.engineer_name, u.color as user_color, u.created_at, u.updated_at,
+      `SELECT u.id, u.email, u.name, u.role, u.engineer_name, u.created_at, u.updated_at,
               u.invitation_token, u.invitation_expires,
-              COALESCE(u.color, e.color) as color, e.tasks_total
+              e.color, e.tasks_total
        FROM users u
        LEFT JOIN engineers e ON u.engineer_name = e.name
        ORDER BY 
@@ -45,9 +45,9 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 
     const { id } = req.params;
     const result = await pool.query(
-      `SELECT u.id, u.email, u.name, u.role, u.engineer_name, u.color as user_color, u.created_at, u.updated_at,
+      `SELECT u.id, u.email, u.name, u.role, u.engineer_name, u.created_at, u.updated_at,
               u.invitation_token, u.invitation_expires,
-              COALESCE(u.color, e.color) as color, e.tasks_total
+              e.color, e.tasks_total
        FROM users u
        LEFT JOIN engineers e ON u.engineer_name = e.name
        WHERE u.id = $1`,
@@ -121,10 +121,10 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
 
       // Create user
       const userResult = await client.query(
-        `INSERT INTO users (email, name, password_hash, role, engineer_name, color, invitation_token, invitation_expires)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-         RETURNING id, email, name, role, engineer_name, color, created_at, invitation_token, invitation_expires`,
-        [email.toLowerCase(), name, passwordHash, role, engineer_name || null, color || null, invitationToken, invitationExpires]
+        `INSERT INTO users (email, name, password_hash, role, engineer_name, invitation_token, invitation_expires)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING id, email, name, role, engineer_name, created_at, invitation_token, invitation_expires`,
+        [email.toLowerCase(), name, passwordHash, role, engineer_name || null, invitationToken, invitationExpires]
       );
 
       const userId = userResult.rows[0].id;
@@ -262,10 +262,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
         updateFields.push(`password_hash = $${paramIndex++}`);
         updateValues.push(passwordHash);
       }
-      if (color !== undefined) {
-        updateFields.push(`color = $${paramIndex++}`);
-        updateValues.push(color || null);
-      }
+      // Note: color is stored in engineers table, not users table
 
       updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
 
@@ -304,8 +301,8 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 
       // Get updated user
       const updatedUser = await client.query(
-        `SELECT u.id, u.email, u.name, u.role, u.engineer_name, u.color as user_color, u.created_at, u.updated_at,
-                COALESCE(u.color, e.color) as color, e.tasks_total
+        `SELECT u.id, u.email, u.name, u.role, u.engineer_name, u.created_at, u.updated_at,
+                e.color, e.tasks_total
          FROM users u
          LEFT JOIN engineers e ON u.engineer_name = e.name
          WHERE u.id = $1`,

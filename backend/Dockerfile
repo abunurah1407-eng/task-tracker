@@ -65,6 +65,7 @@ COPY --from=builder /app/dist ./dist
 # It's only available for manual seeding if needed
 COPY src/db/schema.sql /app/db/schema.sql
 COPY src/db/seed.sql /app/db/seed.sql
+COPY src/db/migration_production_complete.sql /app/db/migration_production_complete.sql
 
 # Expose port
 EXPOSE 3001

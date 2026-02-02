@@ -62,8 +62,8 @@ router.get('/users', authenticate, async (req: AuthRequest, res: Response) => {
       : "WHERE u.role = 'engineer'";
 
     const result = await pool.query(
-      `SELECT u.id, u.email, u.name, u.role, u.engineer_name, u.color as user_color, u.created_at, u.updated_at, u.invitation_token, u.invitation_expires,
-              COALESCE(u.color, e.color) as color, e.tasks_total
+      `SELECT u.id, u.email, u.name, u.role, u.engineer_name, u.created_at, u.updated_at, u.invitation_token, u.invitation_expires,
+              e.color, e.tasks_total
        FROM users u
        LEFT JOIN engineers e ON u.engineer_name = e.name
        ${whereClause}
