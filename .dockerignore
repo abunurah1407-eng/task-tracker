@@ -16,14 +16,9 @@ coverage
 .DS_Store
 docker-compose.dev.yml
 Dockerfile.dev
-backend/Dockerfile.dev
 *.xlsm
 *.xlsx
 *.xls
-backend/src/db/2025
-backend/src/db/*.js
-backend/src/db/*.ts
-!backend/src/db/schema.sql
-!backend/src/db/seed.sql
-backend/src/db/migration_*.sql
 seed-database.sql
+# Exclude entire backend directory for frontend builds
+backend/

@@ -17,7 +17,7 @@ import GroupedTasksByService from './GroupedTasksByService';
 import GroupedTasksByStatus from './GroupedTasksByStatus';
 import AboutModal from './AboutModal';
 import ReminderSettings from './ReminderSettings';
-import { Plus, Download, LogOut, Bell, Search, CheckCircle, Clock, Circle, FileText, UserPlus, Upload, Layers, ChevronDown, Menu, X, User, RefreshCw, Bot, Mail, Info, Settings, Shield, TestTube } from 'lucide-react';
+import { Plus, Download, LogOut, Bell, Search, CheckCircle, Clock, Circle, FileText, UserPlus, Upload, Layers, ChevronDown, ChevronLeft, ChevronRight, Menu, X, User, RefreshCw, Bot, Mail, Info, Settings, TestTube } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import html2canvas from 'html2canvas';
@@ -68,6 +68,8 @@ export default function DirectorDashboard() {
   });
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [isReminderSettingsOpen, setIsReminderSettingsOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
 
   useEffect(() => {
     loadData();
@@ -354,7 +356,19 @@ export default function DirectorDashboard() {
     );
   }
 
-  // Calculate statistics from filtered tasks
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, statusFilter, engineerFilter, priorityFilter, weekFilter, monthFilter, yearFilter, serviceFilter, searchQuery, groupBy]);
+
+  // Calculate pagination for "All Tasks" tab when groupBy is 'none'
+  const shouldPaginate = activeTab === 'all' && groupBy === 'none';
+  const totalPages = shouldPaginate ? Math.ceil(filteredTasks.length / itemsPerPage) : 1;
+  const startIndex = shouldPaginate ? (currentPage - 1) * itemsPerPage : 0;
+  const endIndex = shouldPaginate ? startIndex + itemsPerPage : filteredTasks.length;
+  const paginatedTasks = shouldPaginate ? filteredTasks.slice(startIndex, endIndex) : filteredTasks;
+
+  // Calculate statistics from filtered tasks (use all filtered tasks, not paginated)
   const totalTasks = filteredTasks.length;
   const pendingTasks = filteredTasks.filter(t => t.status === 'pending').length;
   const inProgressTasks = filteredTasks.filter(t => t.status === 'in-progress').length;
@@ -2122,27 +2136,82 @@ Do you want to send these ${preview.summary.engineersWithTasks} email(s)?`;
                 </p>
               </div>
             ) : (
-              <div className="max-h-[600px] overflow-y-auto">
-                {activeTab === 'all' ? (
-                  // All tasks tab - use existing grouping logic
-                  groupBy === 'none' ? (
-                    <div className="divide-y divide-gray-200">
-                      {filteredTasks.map((task) => (
-                        <TaskItem key={task.id} task={task} engineers={engineers} onEdit={handleEditTask} onDelete={handleDeleteTask} getStatusIcon={getStatusIcon} getStatusColor={getStatusColor} getPriorityColor={getPriorityColor} />
-                      ))}
-                    </div>
-                  ) : groupBy === 'engineer' ? (
-                    <GroupedTasksByEngineer tasks={filteredTasks} engineers={engineers} onEdit={handleEditTask} onDelete={handleDeleteTask} getStatusIcon={getStatusIcon} getStatusColor={getStatusColor} getPriorityColor={getPriorityColor} />
-                  ) : groupBy === 'service' ? (
-                    <GroupedTasksByService tasks={filteredTasks} engineers={engineers} onEdit={handleEditTask} onDelete={handleDeleteTask} getStatusIcon={getStatusIcon} getStatusColor={getStatusColor} getPriorityColor={getPriorityColor} />
+              <>
+                <div className="max-h-[600px] overflow-y-auto">
+                  {activeTab === 'all' ? (
+                    // All tasks tab - use existing grouping logic
+                    groupBy === 'none' ? (
+                      <div className="divide-y divide-gray-200">
+                        {paginatedTasks.map((task) => (
+                          <TaskItem key={task.id} task={task} engineers={engineers} onEdit={handleEditTask} onDelete={handleDeleteTask} getStatusIcon={getStatusIcon} getStatusColor={getStatusColor} getPriorityColor={getPriorityColor} />
+                        ))}
+                      </div>
+                    ) : groupBy === 'engineer' ? (
+                      <GroupedTasksByEngineer tasks={filteredTasks} engineers={engineers} onEdit={handleEditTask} onDelete={handleDeleteTask} getStatusIcon={getStatusIcon} getStatusColor={getStatusColor} getPriorityColor={getPriorityColor} />
+                    ) : groupBy === 'service' ? (
+                      <GroupedTasksByService tasks={filteredTasks} engineers={engineers} onEdit={handleEditTask} onDelete={handleDeleteTask} getStatusIcon={getStatusIcon} getStatusColor={getStatusColor} getPriorityColor={getPriorityColor} />
+                    ) : (
+                      <GroupedTasksByStatus tasks={filteredTasks} engineers={engineers} onEdit={handleEditTask} onDelete={handleDeleteTask} getStatusIcon={getStatusIcon} getStatusColor={getStatusColor} getPriorityColor={getPriorityColor} />
+                    )
                   ) : (
-                    <GroupedTasksByStatus tasks={filteredTasks} engineers={engineers} onEdit={handleEditTask} onDelete={handleDeleteTask} getStatusIcon={getStatusIcon} getStatusColor={getStatusColor} getPriorityColor={getPriorityColor} />
-                  )
-                ) : (
-                  // Pending and In-Progress tabs - always grouped by engineer
-                  <GroupedTasksByEngineer tasks={filteredTasks} engineers={engineers} onEdit={handleEditTask} onDelete={handleDeleteTask} getStatusIcon={getStatusIcon} getStatusColor={getStatusColor} getPriorityColor={getPriorityColor} />
+                    // Pending and In-Progress tabs - always grouped by engineer
+                    <GroupedTasksByEngineer tasks={filteredTasks} engineers={engineers} onEdit={handleEditTask} onDelete={handleDeleteTask} getStatusIcon={getStatusIcon} getStatusColor={getStatusColor} getPriorityColor={getPriorityColor} />
+                  )}
+                </div>
+                {/* Pagination Controls - Only show for "All Tasks" tab when groupBy is 'none' */}
+                {activeTab === 'all' && groupBy === 'none' && totalPages > 1 && (
+                  <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-4 px-1">
+                    <div className="text-sm text-gray-700">
+                      Showing <span className="font-medium">{startIndex + 1}</span> to <span className="font-medium">{Math.min(endIndex, filteredTasks.length)}</span> of <span className="font-medium">{filteredTasks.length}</span> tasks
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                        className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <ChevronLeft size={16} />
+                        Previous
+                      </button>
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          let pageNum;
+                          if (totalPages <= 5) {
+                            pageNum = i + 1;
+                          } else if (currentPage <= 3) {
+                            pageNum = i + 1;
+                          } else if (currentPage >= totalPages - 2) {
+                            pageNum = totalPages - 4 + i;
+                          } else {
+                            pageNum = currentPage - 2 + i;
+                          }
+                          return (
+                            <button
+                              key={pageNum}
+                              onClick={() => setCurrentPage(pageNum)}
+                              className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                                currentPage === pageNum
+                                  ? 'bg-main text-white'
+                                  : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                              }`}
+                            >
+                              {pageNum}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
+                        className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Next
+                        <ChevronRight size={16} />
+                      </button>
+                    </div>
+                  </div>
                 )}
-              </div>
+              </>
             )}
           </div>
         </div>

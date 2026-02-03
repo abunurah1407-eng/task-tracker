@@ -126,7 +126,7 @@ export default function UsersManagement() {
         };
 
         // Only allow role change if not editing self
-        if (editingUser.id !== currentUser?.id) {
+        if (editingUser.id.toString() !== currentUser?.id) {
           updateData.role = formData.role;
         }
 
@@ -176,7 +176,7 @@ export default function UsersManagement() {
   };
 
   const handleDelete = async (userId: number) => {
-    if (userId === currentUser?.id) {
+    if (userId.toString() === currentUser?.id) {
       alert('You cannot delete your own account');
       return;
     }
@@ -195,15 +195,6 @@ export default function UsersManagement() {
     }
   };
 
-  const getRoleIcon = (role: string) => {
-    const Icon = roleIcons[role as keyof typeof roleIcons] || User;
-    return <Icon size={16} />;
-  };
-
-  const getInvitationLink = (user: UserAccount): string | null => {
-    if (!user.invitation_token) return null;
-    return `${window.location.origin}/invite/${user.invitation_token}`;
-  };
 
   if (loading) {
     return (
@@ -262,7 +253,7 @@ export default function UsersManagement() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {users.map((user) => {
                   const RoleIcon = roleIcons[user.role] || User;
-                  const isCurrentUser = user.id === currentUser?.id;
+                  const isCurrentUser = user.id.toString() === currentUser?.id;
                   
                   return (
                     <tr key={user.id} className={isCurrentUser ? 'bg-blue-50' : ''}>

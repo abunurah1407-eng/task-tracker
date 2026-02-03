@@ -133,7 +133,7 @@ export default function EngineersManagement() {
           };
           
           // Only allow role change if not editing self
-          if (editingUser.id !== currentUser?.id) {
+          if (editingUser.id.toString() !== currentUser?.id) {
             updateData.role = formData.role;
           }
           
@@ -232,7 +232,7 @@ Do you want to create this engineer and send the invitation email?`;
   };
 
   const handleDelete = async (id: number, name: string, role?: string) => {
-    if (id === currentUser?.id) {
+    if (id.toString() === currentUser?.id) {
       alert('You cannot delete your own account');
       return;
     }
@@ -463,10 +463,6 @@ Do you want to send the invitation email?`;
     return `${window.location.origin}/invite/${user.invitation_token}`;
   };
 
-  const getRoleIcon = (role?: string) => {
-    const Icon = roleIcons[role as keyof typeof roleIcons] || User;
-    return <Icon size={16} />;
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -535,7 +531,7 @@ Do you want to send the invitation email?`;
                   {users.map((user, index) => {
                     const invitationLink = getInvitationLink(user);
                     const RoleIcon = roleIcons[user.role as keyof typeof roleIcons] || User;
-                    const isCurrentUser = user.id === currentUser?.id;
+                    const isCurrentUser = user.id.toString() === currentUser?.id;
                     
                     return (
                       <tr key={user.id} className={`hover:bg-gray-50 ${isCurrentUser ? 'bg-blue-50' : ''}`}>
@@ -662,14 +658,14 @@ Do you want to send the invitation email?`;
                   <select
                     value={formData.role}
                     onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
-                    disabled={editingUser?.id === currentUser?.id}
+                    disabled={editingUser?.id.toString() === currentUser?.id}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100"
                   >
                     <option value="admin">Admin</option>
                     <option value="director">Director</option>
                     <option value="engineer">Engineer</option>
                   </select>
-                  {editingUser?.id === currentUser?.id && (
+                  {editingUser?.id.toString() === currentUser?.id && (
                     <p className="text-xs text-gray-500 mt-1">You cannot change your own role</p>
                   )}
                 </div>
