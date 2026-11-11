@@ -39,22 +39,7 @@ docker compose -f docker-compose.dev.yml up -d
 
 ## 🔐 Default Login Credentials
 
-- **Admin**: `admin@etec.gov.sa` / `password123`
-- **Director**: `N.Saleem@etec.gov.sa` (Nasser M. Al-Saleem) / `password123`
-- **Engineers** (all use password `password123`):
-  - `F.Ammaj@etec.gov.sa` (Faisal AlAmmaj)
-  - `A.Osaimi@etec.gov.sa` (Abeer M. Al-Osaimi)
-  - `m.shahrani@etec.gov.sa` (Mohammed AlShahrani)
-  - `W.rashed@etec.gov.sa` (Wed N Alrashed)
-  - `s.dossari@etec.gov.sa` (Sultan Aldossari)
-  - `A.Tfaleh@etec.gov.sa` (Abdullah T. Al-Faleh)
-  - `M.Sahli@etec.gov.sa` (Milaf S. Al-Sahli)
-  - `m.ageeli@etec.gov.sa` (Mohammed Ageeli)
-  - `g.omair@etec.gov.sa` (Ghaida AlOmair)
-  - `a.nswailem@etec.gov.sa` (Amani AL-Swailem)
-  - `M.Hshammari@etec.gov.sa` (Menwer AlShammari)
-  - `a.derwish@etec.gov.sa` (Abdulrahman Alderwish)
-  - `A.AAAhmari@etec.gov.sa` (Aryam Al-Ahmari)
+-
 
 **⚠️ IMPORTANT:** Change all default passwords in production!
 
